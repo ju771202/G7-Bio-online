@@ -497,16 +497,31 @@ function hostInitState() {
     document.getElementById("host-btn-next").innerText = "開始遊戲 / 派發第一題";
     document.getElementById("host-question-display").style.display = "none";
     document.getElementById("host-timer").innerText = "";
+    document.getElementById("host-timer").classList.remove('danger');
     document.getElementById("host-answer-info").style.display = "none";
+    document.getElementById("host-answer-info").innerHTML = "";
+    document.getElementById("result-screen").style.display = "none";
+    document.getElementById("host-player-list").style.display = "block";
+    document.getElementById("final-team-scores").innerHTML = "";
+    document.getElementById("final-personal-scores").innerHTML = "";
+    document.getElementById("final-team-scores").style.display = "none";
+    document.getElementById("final-personal-scores").style.display = "none";
+    document.getElementById("student-only-end").classList.add("hidden");
+    document.getElementById("quiz-area").style.display = "none";
+    document.getElementById("waiting-overlay").style.display = "none";
     clearInterval(timerInterval);
     updateHostUI();
 }
 
 function hostResetGame() {
-    showConfirm("確定要重置遊戲嗎？所有學生將被強制斷線，分數歸零！", () => {
+    showConfirm("確定要重新開始嗎？所有學生與分數紀錄都會清除！", () => {
         broadcast({ type: 'force_reset' });
+        for (let pid in hostConnections) {
+            try { hostConnections[pid].close(); } catch(e) {}
+        }
+        hostConnections = {};
         hostInitState();
-        showAlert("遊戲已重置，等待學生重新加入。");
+        showAlert("遊戲已重新開始，請學生重新加入。");
     });
 }
 
