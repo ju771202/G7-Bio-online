@@ -85,11 +85,9 @@
         #waiting-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; font-size: 2em; font-weight: bold; justify-content: center; align-items: center; z-index: 9999; text-align: center; flex-direction: column;}
         .hidden { display: none !important; }
 
-        /* 客製化 Alert / Confirm / Prompt 彈窗 */
+        /* 客製化 Alert / Confirm 彈窗 */
         .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center; }
         .custom-modal-content { background: white; padding: 30px; border-radius: 10px; text-align: center; max-width: 400px; width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .custom-modal input { padding: 10px; font-size: 1.1em; width: 80%; margin: 15px 0; border: 2px solid #bdc3c7; border-radius: 5px; text-align: center; outline: none; }
-        .custom-modal input:focus { border-color: #3498db; }
         .custom-modal button { padding: 10px 20px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight:bold; }
         .custom-modal button.btn-cancel { background: #7f8c8d; margin-left: 10px; }
     </style>
@@ -98,7 +96,7 @@
 </head>
 <body>
 
-<button class="btn-host" id="btn-host-login" onclick="showHostLogin()">👨‍🏫 主持人入口</button>
+<button class="btn-host" id="btn-host-login" onclick="hostLogin()">👨‍🏫 主持人入口</button>
 
 <div class="container">
     <h1 id="main-title">🧬 7年級生物期末複習對戰版</h1>
@@ -124,11 +122,12 @@
         <div id="group-controls" style="display:flex; gap:10px; align-items:center; margin-bottom:15px; background:white; padding:15px; border-radius:8px;">
             <label style="font-weight:bold; font-size:1.1em;">選擇分組數：</label>
             <select id="team-count-select" style="font-size:1.1em; padding:5px;">
+                <option value="0">不分組</option>
                 <option value="2">分 2 組</option>
                 <option value="3">分 3 組</option>
                 <option value="4">分 4 組</option>
             </select>
-            <button class="btn-host-action btn-host-team" style="margin-top:0;" onclick="hostAssignTeams()">🎲 隨機分組</button>
+            <button class="btn-host-action btn-host-team" id="btn-assign-teams" style="margin-top:0;" onclick="hostAssignTeams()">🎲 隨機分組</button>
         </div>
 
         <div id="host-player-list"></div>
@@ -196,18 +195,6 @@
     </div>
 </div>
 
-<!-- 客製化 Prompt 彈窗 -->
-<div class="custom-modal" id="prompt-modal">
-    <div class="custom-modal-content">
-        <h3>請輸入主持人密碼</h3>
-        <input type="password" id="host-pwd-input" placeholder="請輸入密碼">
-        <div style="color:#e74c3c; display:none; margin-bottom:10px;" id="host-pwd-error">密碼錯誤！</div>
-        <br>
-        <button onclick="submitHostLogin()">確認</button>
-        <button class="btn-cancel" onclick="document.getElementById('prompt-modal').style.display='none'">取消</button>
-    </div>
-</div>
-
 <script>
 // =========================================================================
 // 客製化視窗函數
@@ -226,16 +213,10 @@ function showConfirm(msg, onConfirm) {
     document.getElementById('confirm-modal').style.display = 'flex';
 }
 
-function showHostLogin() {
-    document.getElementById('host-pwd-input').value = '';
-    document.getElementById('host-pwd-error').style.display = 'none';
-    document.getElementById('prompt-modal').style.display = 'flex';
-}
-
 // =========================================================================
 // 題庫與全域變數設定
 // =========================================================================
-const ROOM_ID = 'bio-battle-g7-2026-tw-v2'; 
+const ROOM_ID = 'bio-battle-g7-2026-tw-v3'; 
 const MAX_PLAYERS = 20;
 
 let peer = null;
@@ -343,21 +324,15 @@ function broadcast(data) {
 // =========================================================================
 // 👨‍🏫 主持人 (Host) 邏輯
 // =========================================================================
-function submitHostLogin() {
-    let pwd = document.getElementById("host-pwd-input").value;
-    if(pwd === "9487") {
-        document.getElementById("prompt-modal").style.display = 'none';
-        isHost = true;
-        document.getElementById("btn-host-login").style.display = "none";
-        document.getElementById("start-screen").style.display = "none";
-        document.getElementById("host-panel").style.display = "block";
-        document.getElementById("host-answer-info").innerText = "主持人房間啟動中，請稍候...";
-        document.getElementById("host-answer-info").style.display = "block";
+function hostLogin() {
+    isHost = true;
+    document.getElementById("btn-host-login").style.display = "none";
+    document.getElementById("start-screen").style.display = "none";
+    document.getElementById("host-panel").style.display = "block";
+    document.getElementById("host-answer-info").innerText = "主持人房間啟動中，請稍候...";
+    document.getElementById("host-answer-info").style.display = "block";
 
-        initHostPeer();
-    } else {
-        document.getElementById("host-pwd-error").style.display = "block";
-    }
+    initHostPeer();
 }
 
 function initHostPeer() {
@@ -444,6 +419,7 @@ function hostInitState() {
     globalQuestionOrder = shuffleArray(Array.from({length: rawQuestions.length}, (_, i) => i));
     
     document.getElementById("group-controls").style.display = "flex";
+    document.getElementById("btn-assign-teams").innerText = "🎲 隨機分組";
     document.getElementById("host-btn-next").style.display = "none";
     document.getElementById("host-btn-reveal").style.display = "none";
     document.getElementById("host-btn-end").style.display = "block";
@@ -467,43 +443,53 @@ function hostAssignTeams() {
     const pKeys = Object.keys(playersData);
     numTeams = parseInt(document.getElementById("team-count-select").value);
     
-    if (pKeys.length < numTeams) {
+    if (numTeams > 0 && pKeys.length < numTeams) {
         showAlert(`至少需要 ${numTeams} 名玩家才能分成 ${numTeams} 組！`);
         return;
     }
 
-    pKeys.sort(() => Math.random() - 0.5);
-    let pkmns = shuffleArray(pokemonNames);
-    
     teamsInfo = {};
-    for(let i=1; i<=numTeams; i++) {
-        teamsInfo[i] = { name: pkmns[i-1] + "隊", score: 0 };
+    if (numTeams > 0) {
+        pKeys.sort(() => Math.random() - 0.5);
+        let pkmns = shuffleArray(pokemonNames);
+        for(let i=1; i<=numTeams; i++) {
+            teamsInfo[i] = { name: pkmns[i-1] + "隊", score: 0 };
+        }
+
+        pKeys.forEach((pid, index) => {
+            let teamNum = (index % numTeams) + 1;
+            playersData[pid].team = teamNum;
+            playersData[pid].score = 0;
+            playersData[pid].hasSubmitted = false;
+            playersData[pid].isCorrect = null;
+            playersData[pid].answer = null;
+        });
+        showAlert(`已成功隨機分成 ${numTeams} 組！可以開始派題了。`);
+    } else {
+        pKeys.forEach((pid) => {
+            playersData[pid].team = 0;
+            playersData[pid].score = 0;
+            playersData[pid].hasSubmitted = false;
+            playersData[pid].isCorrect = null;
+            playersData[pid].answer = null;
+        });
+        showAlert(`已設定為「不分組」模式！可以開始派題了。`);
     }
 
-    pKeys.forEach((pid, index) => {
-        let teamNum = (index % numTeams) + 1;
-        playersData[pid].team = teamNum;
-        playersData[pid].score = 0;
-        playersData[pid].hasSubmitted = false;
-        playersData[pid].isCorrect = null;
-        playersData[pid].answer = null;
-    });
-
-    document.getElementById("group-controls").style.display = "none";
+    document.getElementById("btn-assign-teams").innerText = "🔄 再次分組";
     document.getElementById("host-btn-next").style.display = "block";
     updateHostUI();
     
     for (let pid in hostConnections) {
         sendPlayerUpdate(pid);
     }
-    showAlert(`已成功隨機分成 ${numTeams} 組！可以開始派題了。`);
 }
 
 function sendPlayerUpdate(peerId) {
     const p = playersData[peerId];
     if (!p || !hostConnections[peerId]) return;
     
-    let teamName = p.team ? teamsInfo[p.team].name : "未分組";
+    let teamName = p.team && teamsInfo[p.team] ? teamsInfo[p.team].name : "未分組";
     safeSend(hostConnections[peerId], {
         type: 'player_update',
         teamName: teamName,
@@ -954,10 +940,9 @@ function studentReveal(correctAns) {
 }
 
 function showStudentResults(finalTeamsInfo) {
-    clearInterval(timerInterval); // 確保倒數計時器停止
+    clearInterval(timerInterval); 
     currentLocalStatus = 'finished';
     
-    // 強制隱藏所有測驗畫面，並顯示結果畫面
     document.getElementById("quiz-area").style.display = "none";
     document.getElementById("player-header").style.display = "none";
     document.getElementById("waiting-overlay").style.display = "none";
@@ -981,7 +966,7 @@ function showStudentResults(finalTeamsInfo) {
         
         tBox.innerHTML = tHtml;
     } else {
-        tBox.style.display = "none"; // 不分組時隱藏隊伍排名區塊
+        tBox.style.display = "none"; 
     }
 }
 </script>
