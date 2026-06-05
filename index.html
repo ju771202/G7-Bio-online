@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7年級生物期末複習對戰版</title>
+    <style>
+        /* 基礎樣式 */
+        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f4f7f6; padding: 20px; color: #333; line-height: 1.6; margin: 0; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 0;}
+        
+        /* 登入畫面 */
+        #start-screen { text-align: center; padding: 40px 20px; }
+        #student-name { padding: 12px; font-size: 1.2em; border: 2px solid #bdc3c7; border-radius: 8px; width: 80%; max-width: 300px; margin-bottom: 20px; text-align: center; outline: none;}
+        #student-name:focus { border-color: #3498db; }
+        .btn-start { background-color: #2ecc71; color: white; padding: 15px 40px; font-size: 1.3em; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.2s;}
+        .btn-start:hover { background-color: #27ae60; transform: translateY(-2px);}
+
+        /* 主持人入口按鈕 */
+        .btn-host { background-color: #8e44ad; color: white; font-size: 0.9em; padding: 10px 20px; position: absolute; top: 20px; right: 20px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; z-index: 100;}
+        .btn-host:hover { background-color: #732d91; }
+
+        /* 主持人面板 */
+        #host-panel { display: none; background: #fff3cd; padding: 20px; border-radius: 10px; border: 2px solid #ffeeba; margin-bottom: 20px;}
+        .btn-host-action { border:none; border-radius:8px; color:white; font-weight:bold; cursor:pointer; margin-top: 15px; width: 100%; font-size: 1.1em; padding: 15px; transition: 0.2s;}
+        .btn-host-action:hover { opacity: 0.8; }
+        .btn-host-team { background-color: #f39c12; flex:1;}
+        .btn-host-start { background-color: #27ae60; }
+        .btn-host-reveal { background-color: #3498db; }
+        .btn-host-end { background-color: #c0392b; }
+        .btn-host-reset { background-color: #e74c3c; margin-top: 0; margin-bottom: 15px;}
+
+        /* 分隊顯示 (老師端) */
+        .host-team-columns { display: grid; gap: 15px; margin-top: 15px; }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+        @media (max-width: 700px) { .host-team-columns { grid-template-columns: 1fr; } }
+        .host-team-column { background: white; border: 2px solid #bdc3c7; border-radius: 8px; padding: 12px; min-height: 80px; }
+        .host-team-column h3 { margin: 0 0 10px 0; padding-bottom: 8px; border-bottom: 1px solid rgba(0,0,0,0.1); text-align: center;}
+        
+        .player-tag { display: flex; justify-content: space-between; padding: 8px 12px; background: #fff; border: 2px solid #bdc3c7; border-radius: 5px; font-weight: bold; margin-bottom: 6px; font-size: 0.95em;}
+        .player-tag.submitted { border-color: #2ecc71; box-shadow: 0 0 5px rgba(46, 204, 113, 0.5); }
+        .player-tag.correct-tag { border-color: #2ecc71; background: #d4edda; color: #155724; }
+        .player-tag.wrong-tag { border-color: #e74c3c; background: #f8d7da; color: #721c24; }
+
+        /* 隊伍專屬顏色 */
+        .team-1-bg { background-color: #fff3cd; border-color: #ffc107; color: #856404; } /* 皮卡丘(黃) */
+        .team-2-bg { background-color: #f8d7da; border-color: #dc3545; color: #721c24; } /* 噴火龍(紅) */
+        .team-3-bg { background-color: #d4edda; border-color: #28a745; color: #155724; } /* 妙蛙種子(綠) */
+        .team-4-bg { background-color: #d1ecf1; border-color: #17a2b8; color: #0c5460; } /* 傑尼龜(藍) */
+
+        /* 老師端題目顯示 */
+        #host-question-display { display:none; background:white; padding:20px; border-radius:8px; margin-top:20px; border:2px solid #bdc3c7;}
+        .host-option-list { font-size: 1.1em; line-height: 1.8; list-style-type: none; padding-left: 0;}
+        .host-option-list li { margin-bottom: 8px; padding: 8px; background: #f8f9fa; border-radius: 5px;}
+        .host-option-list li b { color: #2980b9; margin-right: 10px; }
+
+        /* 玩家標頭 (分數與計時) */
+        #player-header { display:none; background:#2c3e50; color:white; padding:15px; border-radius:8px; margin-bottom:20px; text-align:center;}
+        .score-board { font-size: 1.2em; font-weight: bold; }
+        .timer { font-size: 2.5em; font-weight: bold; color: #f1c40f; margin-top: 5px;}
+        .timer.danger { color: #e74c3c; animation: blink 1s infinite;}
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        /* 測驗區域 (學生) */
+        #quiz-area { display: none; }
+        .question-title { font-size: 1.3em; font-weight: bold; margin-bottom: 20px; color: #2c3e50; line-height: 1.4;}
+        .option { display: block; background: #ecf0f1; border: 2px solid #bdc3c7; border-radius: 8px; padding: 15px; margin-bottom: 12px; cursor: pointer; transition: 0.2s; font-size: 1.1em; }
+        .option:hover { background: #e0e6e8; }
+        .option.selected { border-color: #3498db; background: #d6eaf8; box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);}
+        .option.correct { background-color: #d4edda; border-color: #28a745; color: #155724; font-weight:bold; }
+        .option.wrong { background-color: #f8d7da; border-color: #dc3545; color: #721c24; text-decoration: line-through; }
+        .btn-submit { background-color: #3498db; width:100%; padding:15px; font-size: 1.2em; border:none; border-radius:8px; color:white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; font-weight:bold; margin-top: 10px;}
+        .btn-submit:hover:not(:disabled) { background-color: #2980b9; transform: translateY(-2px);}
+        .btn-submit:disabled { background-color: #bdc3c7; box-shadow: none; cursor: not-allowed; color: #7f8c8d; }
+        .feedback { font-size: 1.5em; font-weight: bold; margin-top: 20px; text-align: center; }
+
+        /* 結算畫面 */
+        #result-screen { text-align: center; display: none; }
+        .score-display { font-size: 4em; color: #e74c3c; margin: 10px 0 30px 0; font-weight: bold;}
+        .result-box { background:#ecf0f1; border: 2px solid #bdc3c7; padding:20px; border-radius:10px; margin:20px 0; text-align: left; font-size: 1.2em; max-width: 500px; margin-left: auto; margin-right: auto;}
+        
+        #waiting-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; font-size: 2em; font-weight: bold; justify-content: center; align-items: center; z-index: 9999; text-align: center; flex-direction: column;}
+        .hidden { display: none !important; }
+    </style>
+    <!-- 引入 PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+<button class="btn-host" id="btn-host-login" onclick="hostLogin()">👨‍🏫 主持人入口</button>
+
+<div class="container">
+    <h1 id="main-title">🧬 7年級生物期末複習對戰版</h1>
+    
+    <!-- 玩家資訊列 -->
+    <div id="player-header">
+        <div class="score-board">
+            👤 姓名：<span id="my-name-display"></span> 
+            | 🛡️ 隊伍：<span id="my-team-name">未分組</span>
+            <br>
+            ⭐ 個人總分：<span id="my-score" style="color:#2ecc71; font-size:1.2em;">0</span> 分
+        </div>
+        <div class="timer" id="player-timer">20</div>
+    </div>
+
+    <!-- 主持人面板 -->
+    <div id="host-panel">
+        <button class="btn-host-action btn-host-reset" onclick="hostResetGame()">🔄 重新開始 (清除紀錄並踢出學生)</button>
+        <h2 style="margin-top:0; color:#333;">👑 主持人控制台</h2>
+        
+        <p style="font-size:1.2em; text-align:center; font-weight:bold; color:#2980b9;">連線人數：<span id="player-count">0 / 20</span></p>
+        
+        <div id="group-controls" style="display:flex; gap:10px; align-items:center; margin-bottom:15px; background:white; padding:15px; border-radius:8px;">
+            <label style="font-weight:bold; font-size:1.1em;">選擇分組數：</label>
+            <select id="team-count-select" style="font-size:1.1em; padding:5px;">
+                <option value="2">分 2 組</option>
+                <option value="3">分 3 組</option>
+                <option value="4">分 4 組</option>
+            </select>
+            <button class="btn-host-action btn-host-team" style="margin-top:0;" onclick="hostAssignTeams()">🎲 隨機分組</button>
+        </div>
+
+        <div id="host-player-list"></div>
+        
+        <div id="host-question-display"></div>
+        <div id="host-answer-info" style="margin-top:20px; font-size:1.4em; font-weight:bold; color:#e74c3c; display:none; text-align:center; background: white; padding: 15px; border-radius: 8px;"></div>
+        
+        <div class="timer" id="host-timer" style="text-align:center; color:#333; margin-top: 15px;"></div>
+
+        <button class="btn-host-action btn-host-start" id="host-btn-next" onclick="hostStartOrNext()" style="display:none;">開始遊戲 / 派發第一題</button>
+        <button class="btn-host-action btn-host-reveal" id="host-btn-reveal" onclick="hostReveal()" style="display:none;">公佈解答 (結算本題分數)</button>
+        <button class="btn-host-action btn-host-end" id="host-btn-end" onclick="hostEndGame()" style="display:none; margin-top: 10px;">🛑 結束測驗並看總成績</button>
+    </div>
+
+    <!-- 首頁 -->
+    <div id="start-screen">
+        <h2>歡迎！請輸入您的名字或組別</h2>
+        <p style="color:#7f8c8d;">(目前房間人數限制 20 人)</p>
+        <input type="text" id="student-name" placeholder="例如：王小明" required>
+        <br>
+        <button class="btn-start" onclick="joinGame()">加入遊戲</button>
+    </div>
+
+    <!-- 測驗區域 -->
+    <div id="quiz-area"></div>
+
+    <!-- 結算畫面 -->
+    <div id="result-screen">
+        <h2>📊 最終結算成績</h2>
+        
+        <!-- 隊伍排名 -->
+        <div class="result-box" id="final-team-scores"></div>
+        
+        <!-- 個人成績 (老師端顯示全班，學生端顯示自己) -->
+        <div class="result-box" id="final-personal-scores"></div>
+
+        <div id="student-only-end" class="hidden">
+            <p style="font-size:1.5em; margin-bottom:0;">個人總得分</p>
+            <div class="score-display"><span id="final-score-display">0</span> 分</div>
+        </div>
+    </div>
+</div>
+
+<!-- 等待畫面 -->
+<div id="waiting-overlay">
+    <div id="wait-msg">等待連線中...</div>
+    <div style="font-size:0.5em; margin-top:20px; color:#bdc3c7;">(若卡住過久，請重新整理網頁)</div>
+</div>
+
+<script>
+// =========================================================================
+// 題庫與全域變數設定
+// =========================================================================
+// 固定一個房間 ID，方便學生自動找到老師。加上亂數避免與全球其他使用者撞房。
+const ROOM_ID = 'bio-battle-g7-2026-tw'; 
+const MAX_PLAYERS = 20;
+
+let peer = null;
+let conn = null;
+let hostConnections = {}; // { peerId: connection }
+let playersData = {};     // { peerId: { name, team, score, hasSubmitted, answer } }
+let teamsInfo = {};       // { 1: {name, score}, ... }
+let numTeams = 2;
+
+let studentName = "";
+let isHost = false;
+let currentQ = 0;
+let answered = false;
+let currentLocalStatus = "waiting"; 
+let timerInterval;
+let globalQuestionOrder = [];
+
+const pokemonNames = ["皮卡丘", "噴火龍", "妙蛙種子", "傑尼龜"];
+const optionLabels = ["A", "B", "C", "D"];
+
+// 100題單選題庫 (依照講義內容撰寫)
+const rawQuestions = [
+    { q: "呼吸作用的主要目的是什麼？", o: ["產生氧氣", "獲得能量", "儲存養分", "散熱"], a: 1 },
+    { q: "呼吸作用在細胞的哪一個構造中進行？", o: ["葉綠體", "粒線體", "細胞核", "液泡"], a: 1 },
+    { q: "呼吸作用的反應物（材料）是什麼？", o: ["二氧化碳和水", "氧氣和水", "氧氣和葡萄糖", "二氧化碳和葡萄糖"], a: 2 },
+    { q: "單細胞生物（如喇叭蟲）如何進行氣體交換？", o: ["透過鰓", "透過肺", "透過細胞膜表面擴散", "透過氣管"], a: 2 },
+    { q: "昆蟲（如蝗蟲）主要利用什麼構造進行氣體交換？", o: ["肺", "皮膚", "鰓", "氣管"], a: 3 },
+    { q: "魚類在水中主要利用什麼構造進行呼吸？", o: ["氣管", "肺", "鰓", "皮膚"], a: 2 },
+    { q: "關於動物氣體交換構造的共同特徵，下列何者錯誤？", o: ["表面溼潤", "具有較大的表面積", "表面通常具有厚實的角質層", "布滿微血管"], a: 2 },
+    { q: "青蛙除了用肺呼吸外，還能利用哪一個構造輔助氣體交換？", o: ["氣管", "鰓", "溼潤的皮膚", "肝臟"], a: 2 },
+    { q: "人體的呼吸系統中，氣體交換的主要場所是？", o: ["鼻腔", "氣管", "支氣管", "肺泡"], a: 3 },
+    { q: "關於人體的肺泡，下列敘述何者錯誤？", o: ["僅由一層細胞構成", "表面布滿微血管", "具有肌肉組織可主動收縮", "數量極多，可增加表面積"], a: 2 },
+    { q: "當人體「吸氣」時，橫膈與肋骨的變化為何？", o: ["橫膈上升、肋骨下降", "橫膈下降、肋骨上舉", "橫膈上升、肋骨上舉", "橫膈下降、肋骨下降"], a: 1 },
+    { q: "當人體「呼氣」時，胸腔體積與肺內體積的變化為何？", o: ["皆變大", "皆變小", "胸腔變大、肺變小", "胸腔變小、肺變大"], a: 1 },
+    { q: "人體控制呼吸運動的樞紐（中樞）位於何處？", o: ["大腦", "小腦", "腦幹", "脊髓"], a: 2 },
+    { q: "血液中哪一種氣體的濃度，是刺激呼吸中樞調節呼吸頻率的主要因素？", o: ["氧氣", "氮氣", "二氧化碳", "一氧化碳"], a: 2 },
+    { q: "劇烈運動時呼吸變快，主要是為了？", o: ["增加散熱", "排除體內過多的二氧化碳", "增加心跳", "減少水分流失"], a: 1 },
+    { q: "製作呼吸運動模型時，寶特瓶底部的氣球膜代表人體的什麼構造？", o: ["肺", "氣管", "橫膈", "肋骨"], a: 2 },
+    { q: "下拉呼吸運動模型的底部氣球膜時，代表什麼動作？", o: ["吸氣", "呼氣", "打嗝", "吞嚥"], a: 0 },
+    { q: "植物體內負責運輸水分與養分的管道統稱為？", o: ["消化管", "血管", "維管束", "氣管"], a: 2 },
+    { q: "維管束中的「木質部」主要功能為何？", o: ["運輸水分及礦物質", "運輸養分", "進行光合作用", "控制氣孔開閉"], a: 0 },
+    { q: "維管束中的「韌皮部」主要功能為何？", o: ["運輸水分", "運輸氧氣", "運輸養分", "吸收水分"], a: 2 },
+    { q: "葉片中的維管束，我們通常稱為什麼？", o: ["葉肉", "葉脈", "表皮", "氣孔"], a: 1 },
+    { q: "具有「形成層」的植物，其莖能夠不斷發生什麼變化？", o: ["長出根毛", "莖加粗生長", "葉片變紅", "花朵變大"], a: 1 },
+    { q: "根部的表皮細胞向外突出形成「根毛」，主要功能為何？", o: ["保護根部", "增加吸收水分的表面積", "儲存養分", "行光合作用"], a: 1 },
+    { q: "植物體內水分向上運輸的主要動力來源為何？", o: ["光合作用", "呼吸作用", "蒸散作用", "觸發運動"], a: 2 },
+    { q: "我們常用的「木材」，其實是植物莖內的哪一種老化構造？", o: ["韌皮部", "形成層", "表皮", "木質部"], a: 3 },
+    { q: "樹皮被環狀剝皮一圈後，樹木會死亡的主要原因為何？", o: ["水分無法向上", "根部缺乏養分而壞死", "無法行光合作用", "害蟲入侵"], a: 1 },
+    { q: "夜晚氣孔關閉，主要有助於什麼？", o: ["吸收更多二氧化碳", "避免過多水分散失", "增加呼吸作用", "加速養分運輸"], a: 1 },
+    { q: "植物葉片表面的「角質層」有什麼主要功能？", o: ["吸收水分", "行光合作用", "防止水分散失", "運輸養分"], a: 2 },
+    { q: "植物行光合作用的主要器官是？", o: ["根", "莖", "葉", "花"], a: 2 },
+    { q: "光合作用的兩大反應物為何？", o: ["氧氣和葡萄糖", "二氧化碳和水", "氧氣和水", "二氧化碳和葡萄糖"], a: 1 },
+    { q: "光合作用的主要產物為何？", o: ["氧氣和水", "二氧化碳和水", "氧氣和葡萄糖", "二氧化碳和葡萄糖"], a: 2 },
+    { q: "葉綠體利用哪一種色素吸收太陽光能？", o: ["花青素", "葉綠素", "葉黃素", "胡蘿蔔素"], a: 1 },
+    { q: "植物產生葡萄糖後，常會轉變成何種物質暫時儲存？", o: ["蛋白質", "脂肪", "澱粉", "纖維素"], a: 2 },
+    { q: "測試葉片是否含有澱粉時，需使用哪一種試劑？", o: ["本氏液", "亞甲藍液", "碘液", "酚酞"], a: 2 },
+    { q: "若葉片含有澱粉，滴加碘液後會呈現什麼顏色？", o: ["黃褐色", "藍黑色", "紅色", "無色"], a: 1 },
+    { q: "將葉片放入酒精中隔水加熱的目的為何？", o: ["破壞角質層", "殺死細胞", "溶出葉綠素", "測試澱粉"], a: 2 },
+    { q: "關於光合與呼吸作用，何者正確？", o: ["光合只在晚上", "呼吸只在白天", "光合需要光，呼吸隨時進行", "兩者皆需日光"], a: 2 },
+    { q: "正常人體的體溫大約維持在多少度？", o: ["30℃", "35℃", "37℃", "40℃"], a: 2 },
+    { q: "人體調節體溫、水分與血糖的中樞位於何處？", o: ["大腦", "小腦", "腦部(腦幹與下視丘)", "脊髓"], a: 2 },
+    { q: "天氣炎熱時，人體主要透過什麼方式散熱？", o: ["肌肉顫抖", "血管收縮", "流汗與血管擴張", "食慾大增"], a: 2 },
+    { q: "下列哪一種動物屬於外溫動物（變溫動物）？", o: ["狗", "麻雀", "蛇", "鯨魚"], a: 2 },
+    { q: "飯後血糖升高，胰臟會分泌何種激素降低血糖？", o: ["升糖素", "腎上腺素", "胰島素", "甲狀腺素"], a: 2 },
+    { q: "飢餓時，胰臟分泌何種激素促使肝糖分解？", o: ["胰島素", "升糖素", "腎上腺素", "生長激素"], a: 1 },
+    { q: "遇到緊急狀況時，會分泌何種激素使心跳加快、血糖升高？", o: ["胰島素", "升糖素", "腎上腺素", "性激素"], a: 2 },
+    { q: "人體每天排出的水分中，佔最大宗的途徑是？", o: ["呼氣", "流汗", "糞便", "尿液"], a: 3 },
+    { q: "植物受到單一方向刺激而改變生長方向，稱為？", o: ["傾性", "觸發運動", "向性", "睡眠運動"], a: 2 },
+    { q: "放在窗邊的植物莖部朝向陽光彎曲，屬於？", o: ["負向光性", "正向光性", "負向地性", "正向地性"], a: 1 },
+    { q: "植物的根向下生長，屬於？", o: ["向光性", "正向地性", "無向性", "向水性"], a: 1 },
+    { q: "含羞草受觸碰而葉片下垂，是哪種運動？", o: ["向觸性", "觸發運動(膨壓改變)", "向地性", "向光性"], a: 1 },
+    { q: "飛蛾撲火屬於哪一種行為？", o: ["條件反射", "學習行為", "正趨光性", "負趨地性"], a: 2 }
+];
+
+function shuffleArray(arr) {
+    let copy = [...arr];
+    for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+}
+
+// =========================================================================
+// 👨‍🏫 主持人 (Host) 邏輯
+// =========================================================================
+function hostLogin() {
+    let pwd = prompt("請輸入主持人密碼 (預設: 9487):");
+    if(pwd === "9487") {
+        isHost = true;
+        document.getElementById("btn-host-login").style.display = "none";
+        document.getElementById("start-screen").style.display = "none";
+        document.getElementById("host-panel").style.display = "block";
+        
+        initHostPeer();
+    } else if (pwd !== null) {
+        alert("密碼錯誤！");
+    }
+}
+
+function initHostPeer() {
+    if (peer) peer.destroy();
+    
+    // 使用固定的 ROOM_ID 建立老師房間
+    peer = new Peer(ROOM_ID, {
+        config: {'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }]}
+    });
+
+    peer.on('open', (id) => {
+        hostInitState();
+        alert("✅ 房間已成功開啟！請通知學生輸入姓名加入遊戲。");
+    });
+
+    peer.on('connection', (connection) => {
+        hostConnections[connection.peer] = connection;
+
+        connection.on('open', () => {
+            // 新加入的學生，同步當前狀態
+            connection.send({ type: 'state', status: currentLocalStatus });
+        });
+
+        connection.on('data', (data) => {
+            if (data.type === 'join') {
+                if (Object.keys(playersData).length >= MAX_PLAYERS && !playersData[connection.peer]) {
+                    connection.send({ type: 'room_full' });
+                    return;
+                }
+                playersData[connection.peer] = {
+                    name: data.name, team: 0, score: 0, hasSubmitted: false, answer: null, isCorrect: null
+                };
+                updateHostUI();
+                sendPlayerUpdate(connection.peer);
+            }
+            else if (data.type === 'submit') {
+                if(playersData[connection.peer]) {
+                    playersData[connection.peer].hasSubmitted = true;
+                    playersData[connection.peer].answer = data.answer;
+                    updateHostUI();
+                }
+            }
+        });
+
+        connection.on('close', () => {
+            delete hostConnections[connection.peer];
+            // 不立刻刪除玩家資料，以免短暫斷線掉分。若要徹底清除需按重新開始。
+            updateHostUI();
+        });
+    });
+
+    peer.on('error', (err) => {
+        if(err.type === 'unavailable-id') {
+            alert("房間建立失敗！可能已經有其他老師開啟了這個網頁。");
+        } else {
+            console.error(err);
+        }
+    });
+}
+
+function hostInitState() {
+    currentLocalStatus = "waiting";
+    playersData = {};
+    teamsInfo = {};
+    currentQ = 0;
+    
+    // 確保題庫足夠，若超過則全用，若少於則直接打亂
+    globalQuestionOrder = shuffleArray(Array.from({length: rawQuestions.length}, (_, i) => i));
+    
+    document.getElementById("group-controls").style.display = "flex";
+    document.getElementById("host-btn-next").style.display = "none";
+    document.getElementById("host-btn-reveal").style.display = "none";
+    document.getElementById("host-btn-end").style.display = "block";
+    document.getElementById("host-btn-next").innerText = "開始遊戲 / 派發第一題";
+    document.getElementById("host-question-display").style.display = "none";
+    document.getElementById("host-timer").innerText = "";
+    document.getElementById("host-answer-info").style.display = "none";
+    clearInterval(timerInterval);
+    updateHostUI();
+}
+
+function hostResetGame() {
+    if(!confirm("確定要重置遊戲嗎？所有學生將被強制斷線，分數歸零！")) return;
+    
+    for (let pid in hostConnections) {
+        hostConnections[pid].send({ type: 'force_reset' });
+    }
+    hostInitState();
+    alert("遊戲已重置，等待學生重新加入。");
+}
+
+function hostAssignTeams() {
+    const pKeys = Object.keys(playersData);
+    numTeams = parseInt(document.getElementById("team-count-select").value);
+    
+    if (pKeys.length < numTeams) {
+        alert(`至少需要 ${numTeams} 名玩家才能分成 ${numTeams} 組！`);
+        return;
+    }
+
+    pKeys.sort(() => Math.random() - 0.5);
+    let pkmns = shuffleArray(pokemonNames);
+    
+    teamsInfo = {};
+    for(let i=1; i<=numTeams; i++) {
+        teamsInfo[i] = { name: pkmns[i-1] + "隊", score: 0 };
+    }
+
+    pKeys.forEach((pid, index) => {
+        let teamNum = (index % numTeams) + 1;
+        playersData[pid].team = teamNum;
+        playersData[pid].score = 0;
+        playersData[pid].hasSubmitted = false;
+        playersData[pid].isCorrect = null;
+        playersData[pid].answer = null;
+    });
+
+    document.getElementById("group-controls").style.display = "none";
+    document.getElementById("host-btn-next").style.display = "block";
+    updateHostUI();
+    
+    for (let pid in hostConnections) {
+        sendPlayerUpdate(pid);
+    }
+    alert(`已成功隨機分成 ${numTeams} 組！可以開始派題了。`);
+}
+
+function sendPlayerUpdate(peerId) {
+    const p = playersData[peerId];
+    if (!p || !hostConnections[peerId]) return;
+    
+    let teamName = p.team ? teamsInfo[p.team].name : "未分組";
+    hostConnections[peerId].send({
+        type: 'player_update',
+        teamName: teamName,
+        myScore: p.score || 0
+    });
+}
+
+function updateHostUI() {
+    let pCount = Object.keys(playersData).length;
+    let submitCount = 0;
+    
+    // 計算隊伍總分
+    for(let t in teamsInfo) teamsInfo[t].score = 0;
+    for (let pid in playersData) {
+        let p = playersData[pid];
+        if (p.team && teamsInfo[p.team]) teamsInfo[p.team].score += (p.score || 0);
+    }
+
+    function renderPlayerTag(pid) {
+        let p = playersData[pid];
+        let stateClass = p.hasSubmitted ? "submitted" : "";
+        if (currentLocalStatus === 'revealed' || currentLocalStatus === 'finished') {
+            if(p.isCorrect !== null) stateClass = p.isCorrect ? "correct-tag" : "wrong-tag";
+        }
+        if (p.hasSubmitted) submitCount++;
+        return `<div class="player-tag ${stateClass}">
+                    <span>${p.name} ${p.hasSubmitted && currentLocalStatus==='answering' ? '✅' : ''}</span>
+                    <span>${p.score || 0} 分</span>
+                </div>`;
+    }
+
+    let html = "";
+    if (Object.keys(teamsInfo).length > 0) {
+        html = `<div class="host-team-columns grid-${numTeams}">`;
+        for(let i=1; i<=numTeams; i++) {
+            let teamHtml = "";
+            for(let pid in playersData) {
+                if (playersData[pid].team === i) teamHtml += renderPlayerTag(pid);
+            }
+            html += `<div class="host-team-column team-${i}-bg">
+                        <h3>${teamsInfo[i].name}｜${teamsInfo[i].score} 分</h3>
+                        ${teamHtml || '<div style="color:#7f8c8d; text-align:center;">尚無隊員</div>'}
+                     </div>`;
+        }
+        html += `</div>`;
+    } else {
+        html += `<div class="host-team-columns grid-4">`;
+        for(let pid in playersData) html += renderPlayerTag(pid);
+        html += `</div>`;
+    }
+
+    document.getElementById("player-count").innerText = `${pCount} / ${MAX_PLAYERS} (本題已答: ${submitCount})`;
+    document.getElementById("host-player-list").innerHTML = html;
+}
+
+function hostStartOrNext() {
+    let nextQ = currentLocalStatus === 'waiting' ? 0 : currentQ + 1;
+    if (nextQ >= rawQuestions.length) {
+        hostEndGame();
+        return;
+    }
+
+    currentQ = nextQ;
+    currentLocalStatus = 'answering';
+
+    for(let pid in playersData) {
+        playersData[pid].hasSubmitted = false;
+        playersData[pid].isCorrect = null;
+        playersData[pid].answer = null;
+    }
+
+    let realQIndex = globalQuestionOrder[currentQ];
+    let q = rawQuestions[realQIndex];
+    const timerEndTime = Date.now() + 20000; // 20秒
+
+    document.getElementById("host-btn-next").style.display = "none";
+    document.getElementById("host-btn-reveal").style.display = "block";
+    document.getElementById("host-answer-info").style.display = "none";
+
+    let qDisplay = document.getElementById("host-question-display");
+    qDisplay.style.display = "block";
+    let optionsHtml = q.o.map((opt, i) => `<li><b>${optionLabels[i]}.</b> ${opt}</li>`).join('');
+    qDisplay.innerHTML = `<h3 style="margin:0 0 10px 0; color:#2c3e50; border-bottom:1px solid #ddd; padding-bottom:5px;">第 ${currentQ + 1} 題</h3>
+                          <p style="font-size:1.2em; font-weight:bold;">${q.q}</p>
+                          <ul class="host-option-list">${optionsHtml}</ul>`;
+
+    updateHostUI();
+    manageHostTimer(timerEndTime);
+    
+    // 廣播給所有學生
+    for(let pid in hostConnections) {
+        hostConnections[pid].send({
+            type: 'question',
+            qIndex: currentQ,
+            realQIndex: realQIndex,
+            totalQ: rawQuestions.length,
+            endTime: timerEndTime
+        });
+    }
+}
+
+function manageHostTimer(endTime) {
+    clearInterval(timerInterval);
+    const hostT = document.getElementById("host-timer");
+    
+    timerInterval = setInterval(() => {
+        let left = Math.ceil((endTime - Date.now()) / 1000);
+        if (left <= 0) {
+            clearInterval(timerInterval);
+            hostT.innerText = "時間到！";
+            hostT.classList.add('danger');
+            
+            if(currentLocalStatus === 'answering') {
+                hostReveal(); // 自動公布解答
+            }
+        } else {
+            hostT.innerText = left + " 秒";
+            if(left <= 5) hostT.classList.add('danger');
+            else hostT.classList.remove('danger');
+        }
+    }, 200);
+}
+
+function hostReveal() {
+    clearInterval(timerInterval);
+    currentLocalStatus = 'revealed';
+    document.getElementById("host-timer").innerText = "已公布解答";
+    document.getElementById("host-timer").classList.remove('danger');
+    
+    let realQIndex = globalQuestionOrder[currentQ];
+    let correctAns = rawQuestions[realQIndex].a;
+
+    // 結算每個玩家的分數
+    for(let pid in playersData) {
+        let p = playersData[pid];
+        if (p.hasSubmitted && p.answer === correctAns) {
+            p.isCorrect = true;
+            p.score += 1; // 答對得 1 分
+        } else {
+            p.isCorrect = false;
+        }
+    }
+
+    updateHostUI();
+
+    let ansText = optionLabels[correctAns] + ". " + rawQuestions[realQIndex].o[correctAns];
+    let info = document.getElementById("host-answer-info");
+    info.innerHTML = `⭐ 正確答案：${ansText}`;
+    info.style.display = "block";
+
+    document.getElementById("host-btn-reveal").style.display = "none";
+    document.getElementById("host-btn-next").style.display = "block";
+    document.getElementById("host-btn-next").innerText = "下一題 ➡";
+
+    // 廣播結果並更新學生分數
+    for(let pid in hostConnections) {
+        sendPlayerUpdate(pid); // 更新最新分數
+        hostConnections[pid].send({ type: 'reveal', correctAns: correctAns });
+    }
+}
+
+function hostEndGame() {
+    if(!confirm("確定要結束測驗並看最終成績嗎？")) return;
+    
+    currentLocalStatus = 'finished';
+    updateHostUI();
+    
+    document.getElementById("host-btn-next").style.display = "none";
+    document.getElementById("host-btn-reveal").style.display = "none";
+    document.getElementById("host-btn-end").style.display = "none";
+    document.getElementById("host-question-display").style.display = "none";
+    document.getElementById("host-answer-info").style.display = "none";
+    document.getElementById("group-controls").style.display = "none";
+    document.getElementById("host-timer").innerText = "測驗已結束";
+
+    // 渲染老師端的排行榜
+    let finalHtml = "<h3>🏁 各隊伍總成績</h3>";
+    let tArr = Object.values(teamsInfo).sort((a,b) => b.score - a.score);
+    tArr.forEach((t, i) => {
+        let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
+        finalHtml += `<div style="margin-bottom:10px; font-size:1.2em;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
+    });
+
+    finalHtml += "<h3 style='margin-top:20px; border-top:1px solid #ddd; padding-top:10px;'>🎓 個人成績排行</h3><ol style='font-size:1.1em;'>";
+    let pArr = Object.values(playersData).sort((a,b) => b.score - a.score);
+    pArr.forEach(p => {
+        let tName = p.team ? teamsInfo[p.team].name : "未分組";
+        finalHtml += `<li><b>${p.name}</b> (${tName}) - ${p.score} 分</li>`;
+    });
+    finalHtml += "</ol>";
+
+    let resBox = document.getElementById("host-final-results");
+    resBox.innerHTML = finalHtml;
+    resBox.style.display = "block";
+    document.getElementById("result-screen").style.display = "block";
+    document.getElementById("host-player-list").style.display = "none";
+
+    // 廣播給學生結束
+    for(let pid in hostConnections) {
+        hostConnections[pid].send({ type: 'end_game', teamsInfo: teamsInfo });
+    }
+}
+
+// =========================================================================
+// 👩‍🎓 學生 (Student) 邏輯
+// =========================================================================
+function joinGame() {
+    studentName = document.getElementById("student-name").value.trim();
+    if (!studentName) {
+        document.getElementById("name-error").style.display = "block";
+        return;
+    }
+    
+    document.getElementById("start-screen").style.display = "none";
+    document.getElementById("btn-host-login").style.display = "none";
+    document.getElementById("waiting-overlay").style.display = "flex";
+    
+    initStudentPeer();
+}
+
+function initStudentPeer() {
+    if (peer) peer.destroy();
+    peer = new Peer({ config: {'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }]} }); 
+
+    peer.on('open', (id) => {
+        connectToHost();
+    });
+
+    peer.on('error', (err) => {
+        if (err.type === 'peer-unavailable') {
+            document.getElementById("wait-msg").innerHTML = "找不到老師的房間，系統自動重試中...<br><span style='font-size:0.6em;color:#bdc3c7;'>(請確認老師已經開啟房間)</span>";
+            setTimeout(connectToHost, 3000); // 3秒後自動重試
+        } else {
+            document.getElementById("wait-msg").innerHTML = "連線發生異常，請重新整理網頁！";
+        }
+    });
+}
+
+function connectToHost() {
+    if (!peer || peer.destroyed) return;
+    
+    conn = peer.connect(ROOM_ID, { reliable: true });
+    
+    conn.on('open', () => {
+        conn.send({ type: 'join', name: studentName });
+        document.getElementById("wait-msg").innerText = "已連線！等待老師分組與派題...";
+    });
+
+    conn.on('data', (data) => {
+        if (data.type === 'state') {
+            if (data.status === 'answering' || data.status === 'revealed') {
+                document.getElementById("wait-msg").innerText = "遊戲進行中，請等候下一題派發...";
+            }
+        }
+        else if (data.type === 'room_full') {
+            alert("房間已滿 (最多20人)！");
+            location.reload();
+        }
+        else if (data.type === 'force_reset') {
+            alert("老師已重置遊戲，請重新登入！");
+            location.reload();
+        }
+        else if (data.type === 'player_update') {
+            document.getElementById("player-header").style.display = "block";
+            document.getElementById("my-name-display").innerText = studentName;
+            document.getElementById("my-score").innerText = data.myScore;
+            document.getElementById("my-team-name").innerText = data.teamName;
+        }
+        else if (data.type === 'question') {
+            document.getElementById("waiting-overlay").style.display = "none";
+            document.getElementById("result-screen").style.display = "none";
+            document.getElementById("quiz-area").style.display = "block";
+            renderStudentQuestion(data.realQIndex, data.qIndex, data.totalQ, data.endTime);
+        }
+        else if (data.type === 'reveal') {
+            studentReveal(data.correctAns);
+        }
+        else if (data.type === 'end_game') {
+            showStudentResults(data.teamsInfo);
+        }
+    });
+
+    conn.on('close', () => {
+        document.getElementById("waiting-overlay").style.display = "flex";
+        document.getElementById("wait-msg").innerHTML = "與老師斷線了，系統自動重新連線中...";
+        setTimeout(connectToHost, 3000);
+    });
+}
+
+function renderStudentQuestion(realQIndex, qIndex, totalQ, endTime) {
+    currentLocalStatus = 'answering';
+    answered = false;
+    const q = rawQuestions[realQIndex];
+
+    let html = `<div class="question-box active">
+                    <div class="question-title">
+                        第 ${qIndex + 1} 題 / 共 ${totalQ} 題<br><br>
+                        ${q.q}
+                    </div>
+                    <div id="options-area">`;
+    
+    q.o.forEach((opt, index) => {
+        html += `<div class="option" onclick="studentSelectOption(${index}, this)"><b>${optionLabels[index]}.</b> ${opt}</div>`;
+    });
+
+    html += `</div>
+             <div class="selection-hint" id="selection-hint" style="color:#e67e22;">請選擇 1 個選項</div>
+             <button class="btn-submit" id="submit-btn" onclick="studentSubmit()" disabled>確認送出</button>
+             <div class="feedback" id="feedback-msg"></div>`;
+             
+    document.getElementById("quiz-area").innerHTML = html;
+    manageStudentTimer(endTime);
+}
+
+function manageStudentTimer(endTime) {
+    clearInterval(timerInterval);
+    const pTimer = document.getElementById("player-timer");
+    const subBtn = document.getElementById("submit-btn");
+    
+    timerInterval = setInterval(() => {
+        let left = Math.ceil((endTime - Date.now()) / 1000);
+        if (left <= 0) {
+            clearInterval(timerInterval);
+            pTimer.innerText = "時間到！";
+            pTimer.classList.add('danger');
+            
+            if (!answered) {
+                answered = true;
+                subBtn.disabled = true;
+                subBtn.innerText = "時間到，未作答";
+                document.getElementById("selection-hint").innerText = "";
+            }
+        } else {
+            pTimer.innerText = left;
+            if(left <= 5) pTimer.classList.add('danger');
+            else pTimer.classList.remove('danger');
+        }
+    }, 200);
+}
+
+function studentSelectOption(index, el) {
+    if (answered) return; 
+
+    const submitBtn = document.getElementById("submit-btn");
+    const hintDiv = document.getElementById("selection-hint");
+
+    document.querySelectorAll(".option").forEach(opt => opt.classList.remove('selected'));
+    el.classList.add('selected');
+    el.dataset.index = index; // 記錄選了哪個
+    
+    hintDiv.innerText = "已選定，請按下確認送出";
+    hintDiv.style.color = "#27ae60";
+    submitBtn.disabled = false;
+}
+
+function studentSubmit() {
+    if (answered) return;
+    
+    const selectedEl = document.querySelector(".option.selected");
+    let ansIndex = selectedEl ? parseInt(selectedEl.dataset.index) : null;
+
+    answered = true;
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.innerText = "等待老師公布解答...";
+    document.getElementById("selection-hint").innerText = "";
+
+    if (conn && conn.open) {
+        conn.send({ type: 'submit', answer: ansIndex });
+    }
+}
+
+function studentReveal(correctAns) {
+    clearInterval(timerInterval);
+    currentLocalStatus = 'revealed';
+    document.getElementById("player-timer").innerText = "結算中";
+    
+    const selectedEl = document.querySelector(".option.selected");
+    let myAns = selectedEl ? parseInt(selectedEl.dataset.index) : null;
+    
+    const allOpts = document.querySelectorAll(".option");
+    
+    allOpts.forEach((opt, idx) => {
+        opt.classList.remove("selected");
+        if (idx === correctAns) {
+            opt.classList.add("correct"); 
+        } else if (idx === myAns && myAns !== correctAns) {
+            opt.classList.add("wrong"); 
+        }
+    });
+
+    const fb = document.getElementById("feedback-msg");
+    if (myAns === null) {
+        fb.innerHTML = "<span style='color:#7f8c8d;'>未作答 ⏳</span>";
+    } else if (myAns === correctAns) {
+        fb.innerHTML = "<span style='color:#28a745;'>答對了！ +1 分 🎉</span>";
+    } else {
+        fb.innerHTML = "<span style='color:#e74c3c;'>答錯囉 📖</span>";
+    }
+
+    document.getElementById("submit-btn").style.display = "none";
+}
+
+function showStudentResults(finalTeamsInfo) {
+    document.getElementById("quiz-area").style.display = "none";
+    document.getElementById("result-screen").style.display = "block";
+    document.getElementById("player-header").style.display = "none";
+    document.getElementById("waiting-overlay").style.display = "none";
+
+    document.getElementById("display-name").innerText = studentName;
+    document.getElementById("final-score-display").innerText = document.getElementById("my-score").innerText;
+    document.getElementById("student-only-end").classList.remove("hidden");
+    
+    if(finalTeamsInfo && Object.keys(finalTeamsInfo).length > 0) {
+        let tBox = document.getElementById("final-team-scores");
+        tBox.style.display = "block";
+        
+        let tHtml = "<h3 style='margin-top:0; border-bottom:2px solid #bdc3c7; padding-bottom:5px;'>🏆 隊伍對決結果</h3>";
+        
+        let tArr = Object.values(finalTeamsInfo).sort((a,b) => b.score - a.score);
+        tArr.forEach((t, i) => {
+            let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
+            tHtml += `<div style="margin-bottom:8px;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
+        });
+        
+        tBox.innerHTML = tHtml;
+    }
+}
+</script>
+
+</body>
+</html>
