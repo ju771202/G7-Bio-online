@@ -84,6 +84,12 @@
         
         #waiting-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; font-size: 2em; font-weight: bold; justify-content: center; align-items: center; z-index: 9999; text-align: center; flex-direction: column;}
         .hidden { display: none !important; }
+
+        /* 客製化 Alert / Confirm 彈窗 */
+        .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center; }
+        .custom-modal-content { background: white; padding: 30px; border-radius: 10px; text-align: center; max-width: 400px; width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .custom-modal button { padding: 10px 20px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight:bold; }
+        .custom-modal button.btn-cancel { background: #7f8c8d; margin-left: 10px; }
     </style>
     <!-- 引入 PeerJS -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -142,6 +148,7 @@
         <input type="text" id="student-name" placeholder="例如：王小明" required>
         <br>
         <button class="btn-start" onclick="joinGame()">加入遊戲</button>
+        <p id="name-error" style="color:#e74c3c; display:none; margin-top:10px; font-weight:bold;"></p>
     </div>
 
     <!-- 測驗區域 -->
@@ -170,19 +177,52 @@
     <div style="font-size:0.5em; margin-top:20px; color:#bdc3c7;">(若卡住過久，請重新整理網頁)</div>
 </div>
 
+<!-- 客製化 Alert 彈窗 -->
+<div class="custom-modal" id="alert-modal">
+    <div class="custom-modal-content">
+        <h3 id="alert-msg">提示訊息</h3>
+        <button onclick="document.getElementById('alert-modal').style.display='none'">確定</button>
+    </div>
+</div>
+
+<!-- 客製化 Confirm 彈窗 -->
+<div class="custom-modal" id="confirm-modal">
+    <div class="custom-modal-content">
+        <h3 id="confirm-msg">確定嗎？</h3>
+        <button id="confirm-yes-btn">確定</button>
+        <button class="btn-cancel" onclick="document.getElementById('confirm-modal').style.display='none'">取消</button>
+    </div>
+</div>
+
 <script>
+// =========================================================================
+// 客製化視窗函數
+// =========================================================================
+function showAlert(msg) {
+    document.getElementById('alert-msg').innerText = msg;
+    document.getElementById('alert-modal').style.display = 'flex';
+}
+
+function showConfirm(msg, onConfirm) {
+    document.getElementById('confirm-msg').innerText = msg;
+    document.getElementById('confirm-yes-btn').onclick = function() {
+        document.getElementById('confirm-modal').style.display = 'none';
+        onConfirm();
+    };
+    document.getElementById('confirm-modal').style.display = 'flex';
+}
+
 // =========================================================================
 // 題庫與全域變數設定
 // =========================================================================
-// 固定一個房間 ID，方便學生自動找到老師。加上亂數避免與全球其他使用者撞房。
-const ROOM_ID = 'bio-battle-g7-2026-tw'; 
+const ROOM_ID = 'bio-battle-g7-2026-tw-v2'; 
 const MAX_PLAYERS = 20;
 
 let peer = null;
 let conn = null;
-let hostConnections = {}; // { peerId: connection }
-let playersData = {};     // { peerId: { name, team, score, hasSubmitted, answer } }
-let teamsInfo = {};       // { 1: {name, score}, ... }
+let hostConnections = {}; 
+let playersData = {};     
+let teamsInfo = {};       
 let numTeams = 2;
 
 let studentName = "";
@@ -193,6 +233,7 @@ let currentLocalStatus = "waiting";
 let timerInterval;
 let globalQuestionOrder = [];
 
+// 髒話/不雅字詞過濾器
 const BAD_WORDS = ["幹", "靠北", "靠杯", "媽的", "沙小", "三小", "機掰", "機敗", "智障", "白痴", "白癡", "垃圾", "王八", "賤", "屌", "屎", "fuck", "shit", "bitch", "ass", "dick", "cock", "pussy", "cunt", "slut", "whore"];
 
 function containsBadWords(name) {
@@ -203,7 +244,7 @@ function containsBadWords(name) {
 const pokemonNames = ["皮卡丘", "噴火龍", "妙蛙種子", "傑尼龜"];
 const optionLabels = ["A", "B", "C", "D"];
 
-// 100題單選題庫 (依照講義內容撰寫)
+// 100題單選題庫
 const rawQuestions = [
     { q: "呼吸作用的主要目的是什麼？", o: ["產生氧氣", "獲得能量", "儲存養分", "散熱"], a: 1 },
     { q: "呼吸作用在細胞的哪一個構造中進行？", o: ["葉綠體", "粒線體", "細胞核", "液泡"], a: 1 },
@@ -266,47 +307,61 @@ function shuffleArray(arr) {
     return copy;
 }
 
+function safeSend(connection, data) {
+    try {
+        if (connection && connection.open) connection.send(data);
+    } catch (e) {
+        console.warn('send failed', e);
+    }
+}
+
+function broadcast(data) {
+    for (let pid in hostConnections) safeSend(hostConnections[pid], data);
+}
+
 // =========================================================================
 // 👨‍🏫 主持人 (Host) 邏輯
 // =========================================================================
 function hostLogin() {
-    let pwd = prompt("請輸入主持人密碼 (預設: 9487):");
-    if(pwd === "9487") {
-        isHost = true;
-        document.getElementById("btn-host-login").style.display = "none";
-        document.getElementById("start-screen").style.display = "none";
-        document.getElementById("host-panel").style.display = "block";
-        
-        initHostPeer();
-    } else if (pwd !== null) {
-        alert("密碼錯誤！");
-    }
+    isHost = true;
+    document.getElementById("btn-host-login").style.display = "none";
+    document.getElementById("start-screen").style.display = "none";
+    document.getElementById("host-panel").style.display = "block";
+    document.getElementById("host-answer-info").innerText = "主持人房間啟動中，請稍候...";
+    document.getElementById("host-answer-info").style.display = "block";
+
+    initHostPeer();
 }
 
 function initHostPeer() {
-    if (peer) peer.destroy();
+    if (peer) { try { peer.destroy(); } catch(e){} }
     
-    // 使用固定的 ROOM_ID 建立老師房間
+    // 建立老師房間並綁定 Google STUN 以提高連線成功率
     peer = new Peer(ROOM_ID, {
-        config: {'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }]}
+        debug: 2,
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
     });
 
     peer.on('open', (id) => {
         hostInitState();
-        alert("✅ 房間已成功開啟！請通知學生輸入姓名加入遊戲。");
+        showAlert("✅ 房間已成功開啟！請通知學生輸入姓名加入遊戲。");
     });
 
     peer.on('connection', (connection) => {
         hostConnections[connection.peer] = connection;
 
         connection.on('open', () => {
-            // 新加入的學生，同步當前狀態與隊伍資訊
             safeSend(connection, { type: 'state', status: currentLocalStatus, teamsInfo: teamsInfo });
         });
 
         connection.on('data', (data) => {
             if (data.type === 'join') {
-                // 檢查名字是否重複 (排除自己重連的情況)
+                // 檢查名字是否重複 (過濾同名)
                 let nameExists = false;
                 for (let pid in playersData) {
                     if (playersData[pid].name === data.name && pid !== connection.peer) {
@@ -340,14 +395,13 @@ function initHostPeer() {
 
         connection.on('close', () => {
             delete hostConnections[connection.peer];
-            // 不立刻刪除玩家資料，以免短暫斷線掉分。若要徹底清除需按重新開始。
             updateHostUI();
         });
     });
 
     peer.on('error', (err) => {
         if(err.type === 'unavailable-id') {
-            alert("房間建立失敗！可能已經有其他老師開啟了這個網頁。");
+            showAlert("房間建立失敗！可能已經有其他老師開啟了這個網頁，請確認。");
         } else {
             console.error(err);
         }
@@ -360,7 +414,6 @@ function hostInitState() {
     teamsInfo = {};
     currentQ = 0;
     
-    // 確保題庫足夠，若超過則全用，若少於則直接打亂
     globalQuestionOrder = shuffleArray(Array.from({length: rawQuestions.length}, (_, i) => i));
     
     document.getElementById("group-controls").style.display = "flex";
@@ -376,13 +429,11 @@ function hostInitState() {
 }
 
 function hostResetGame() {
-    if(!confirm("確定要重置遊戲嗎？所有學生將被強制斷線，分數歸零！")) return;
-    
-    for (let pid in hostConnections) {
-        hostConnections[pid].send({ type: 'force_reset' });
-    }
-    hostInitState();
-    alert("遊戲已重置，等待學生重新加入。");
+    showConfirm("確定要重置遊戲嗎？所有學生將被強制斷線，分數歸零！", () => {
+        broadcast({ type: 'force_reset' });
+        hostInitState();
+        showAlert("遊戲已重置，等待學生重新加入。");
+    });
 }
 
 function hostAssignTeams() {
@@ -390,7 +441,7 @@ function hostAssignTeams() {
     numTeams = parseInt(document.getElementById("team-count-select").value);
     
     if (pKeys.length < numTeams) {
-        alert(`至少需要 ${numTeams} 名玩家才能分成 ${numTeams} 組！`);
+        showAlert(`至少需要 ${numTeams} 名玩家才能分成 ${numTeams} 組！`);
         return;
     }
 
@@ -418,7 +469,7 @@ function hostAssignTeams() {
     for (let pid in hostConnections) {
         sendPlayerUpdate(pid);
     }
-    alert(`已成功隨機分成 ${numTeams} 組！可以開始派題了。`);
+    showAlert(`已成功隨機分成 ${numTeams} 組！可以開始派題了。`);
 }
 
 function sendPlayerUpdate(peerId) {
@@ -426,7 +477,7 @@ function sendPlayerUpdate(peerId) {
     if (!p || !hostConnections[peerId]) return;
     
     let teamName = p.team ? teamsInfo[p.team].name : "未分組";
-    hostConnections[peerId].send({
+    safeSend(hostConnections[peerId], {
         type: 'player_update',
         teamName: teamName,
         myScore: p.score || 0
@@ -437,7 +488,6 @@ function updateHostUI() {
     let pCount = Object.keys(playersData).length;
     let submitCount = 0;
     
-    // 計算隊伍總分
     for(let t in teamsInfo) teamsInfo[t].score = 0;
     for (let pid in playersData) {
         let p = playersData[pid];
@@ -465,7 +515,8 @@ function updateHostUI() {
             for(let pid in playersData) {
                 if (playersData[pid].team === i) teamHtml += renderPlayerTag(pid);
             }
-            html += `<div class="host-team-column team-${i}-bg">
+            let bgClass = `team-${i}-bg`;
+            html += `<div class="host-team-column ${bgClass}">
                         <h3>${teamsInfo[i].name}｜${teamsInfo[i].score} 分</h3>
                         ${teamHtml || '<div style="color:#7f8c8d; text-align:center;">尚無隊員</div>'}
                      </div>`;
@@ -515,16 +566,13 @@ function hostStartOrNext() {
     updateHostUI();
     manageHostTimer(timerEndTime);
     
-    // 廣播給所有學生
-    for(let pid in hostConnections) {
-        hostConnections[pid].send({
-            type: 'question',
-            qIndex: currentQ,
-            realQIndex: realQIndex,
-            totalQ: rawQuestions.length,
-            endTime: timerEndTime
-        });
-    }
+    broadcast({
+        type: 'question',
+        qIndex: currentQ,
+        realQIndex: realQIndex,
+        totalQ: rawQuestions.length,
+        endTime: timerEndTime
+    });
 }
 
 function manageHostTimer(endTime) {
@@ -558,12 +606,11 @@ function hostReveal() {
     let realQIndex = globalQuestionOrder[currentQ];
     let correctAns = rawQuestions[realQIndex].a;
 
-    // 結算每個玩家的分數
     for(let pid in playersData) {
         let p = playersData[pid];
         if (p.hasSubmitted && p.answer === correctAns) {
             p.isCorrect = true;
-            p.score += 1; // 答對得 1 分
+            p.score += 1; 
         } else {
             p.isCorrect = false;
         }
@@ -580,10 +627,9 @@ function hostReveal() {
     document.getElementById("host-btn-next").style.display = "block";
     document.getElementById("host-btn-next").innerText = "下一題 ➡";
 
-    // 廣播結果並更新學生分數
     for(let pid in hostConnections) {
-        sendPlayerUpdate(pid); // 更新最新分數
-        hostConnections[pid].send({ type: 'reveal', correctAns: correctAns });
+        sendPlayerUpdate(pid); 
+        safeSend(hostConnections[pid], { type: 'reveal', correctAns: correctAns });
     }
 }
 
@@ -601,7 +647,6 @@ function hostEndGame() {
     document.getElementById("group-controls").style.display = "none";
     document.getElementById("host-timer").innerText = "測驗已結束";
 
-    // 渲染老師端的排行榜
     let finalHtml = "<h3>🏁 各隊伍總成績</h3>";
     let tArr = Object.values(teamsInfo).sort((a,b) => b.score - a.score);
     tArr.forEach((t, i) => {
@@ -623,12 +668,12 @@ function hostEndGame() {
     document.getElementById("result-screen").style.display = "block";
     document.getElementById("host-player-list").style.display = "none";
 
-    // 廣播給學生同步結束畫面
+    // 廣播給學生，強制同步跳轉到成績結算畫面
     broadcast({ type: 'end_game', teamsInfo: teamsInfo });
 }
 
 // =========================================================================
-// 👩‍🎓 學生 (Student) 邏輯 (PeerJS)
+// 👩‍🎓 學生 (Student) 邏輯
 // =========================================================================
 function joinGame() {
     studentName = document.getElementById("student-name").value.trim();
@@ -657,19 +702,31 @@ function joinGame() {
 }
 
 function initStudentPeer() {
-    if (peer) peer.destroy();
-    peer = new Peer({ config: {'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }]} }); 
+    if (peer) { try { peer.destroy(); } catch(e){} }
+    
+    // 學生 ID 由系統分配，加入 Google STUN 伺服器提高連通率
+    peer = new Peer(null, { 
+        debug: 2,
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
+    }); 
 
     peer.on('open', (id) => {
         connectToHost();
     });
 
     peer.on('error', (err) => {
+        console.error("Student Peer Error", err);
+        // 如果找不到老師房間 (通常是因為老師還沒開啟，或是網路問題)，將會自動每3秒重試
         if (err.type === 'peer-unavailable') {
-            document.getElementById("wait-msg").innerHTML = "找不到老師的房間，系統自動重試中...<br><span style='font-size:0.6em;color:#bdc3c7;'>(請確認老師已經開啟房間)</span>";
-            setTimeout(connectToHost, 3000); // 3秒後自動重試
+            document.getElementById("wait-msg").innerHTML = "找不到老師的房間，3秒後自動重試...<br><span style='font-size:0.6em;'>(請確認老師已經登入)</span>";
+            setTimeout(connectToHost, 3000);
         } else {
-            document.getElementById("wait-msg").innerHTML = "連線發生異常，請重新整理網頁！";
+            document.getElementById("wait-msg").innerHTML = "連線發生異常，請重新整理網頁再試！<br>錯誤代碼：" + err.type;
         }
     });
 }
@@ -695,19 +752,22 @@ function connectToHost() {
         else if (data.type === 'name_taken') {
             document.getElementById("waiting-overlay").style.display = "none";
             document.getElementById("start-screen").style.display = "block";
+            document.getElementById("btn-host-login").style.display = "block";
+            
             let errEl = document.getElementById("name-error");
             errEl.innerText = "這個名字已經有人使用了，請換一個名字！";
             errEl.style.display = "block";
+            
             if (conn) conn.close();
             if (peer) { peer.destroy(); peer = null; }
         }
         else if (data.type === 'room_full') {
-            alert("房間已滿 (最多20人)！");
-            location.reload();
+            showAlert("房間已滿 (最多20人)！");
+            setTimeout(() => location.reload(), 2000);
         }
         else if (data.type === 'force_reset') {
-            alert("老師已重置遊戲，請重新登入！");
-            location.reload();
+            showAlert("老師已重置遊戲，請重新輸入姓名加入！");
+            setTimeout(() => location.reload(), 2000);
         }
         else if (data.type === 'player_update') {
             document.getElementById("player-header").style.display = "block";
@@ -731,7 +791,12 @@ function connectToHost() {
 
     conn.on('close', () => {
         document.getElementById("waiting-overlay").style.display = "flex";
-        document.getElementById("wait-msg").innerHTML = "與老師斷線了，系統自動重新連線中...";
+        document.getElementById("wait-msg").innerHTML = "與老師斷線了，系統正在嘗試重新連線...<br><span style='font-size:0.6em;'>(或請重新整理網頁)</span>";
+        setTimeout(connectToHost, 3000);
+    });
+    
+    conn.on('error', (err) => {
+        document.getElementById("wait-msg").innerHTML = "連線發生錯誤，系統自動重試中...";
         setTimeout(connectToHost, 3000);
     });
 }
@@ -795,7 +860,7 @@ function studentSelectOption(index, el) {
 
     document.querySelectorAll(".option").forEach(opt => opt.classList.remove('selected'));
     el.classList.add('selected');
-    el.dataset.index = index; // 記錄選了哪個
+    el.dataset.index = index; 
     
     hintDiv.innerText = "已選定，請按下確認送出";
     hintDiv.style.color = "#27ae60";
@@ -851,6 +916,7 @@ function studentReveal(correctAns) {
 }
 
 function showStudentResults(finalTeamsInfo) {
+    currentLocalStatus = 'finished';
     document.getElementById("quiz-area").style.display = "none";
     document.getElementById("result-screen").style.display = "block";
     document.getElementById("player-header").style.display = "none";
