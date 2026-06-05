@@ -124,6 +124,7 @@
         <div id="group-controls" style="display:flex; gap:10px; align-items:center; margin-bottom:15px; background:white; padding:15px; border-radius:8px;">
             <label style="font-weight:bold; font-size:1.1em;">選擇分組數：</label>
             <select id="team-count-select" style="font-size:1.1em; padding:5px;">
+                <option value="0">不分組</option>
                 <option value="2">分 2 組</option>
                 <option value="3">分 3 組</option>
                 <option value="4">分 4 組</option>
@@ -528,6 +529,27 @@ function hostResetGame() {
 function hostAssignTeams() {
     const pKeys = Object.keys(playersData);
     numTeams = parseInt(document.getElementById("team-count-select").value);
+
+    if (numTeams === 0) {
+        teamsInfo = {};
+        pKeys.forEach((pid) => {
+            playersData[pid].team = 0;
+            playersData[pid].score = 0;
+            playersData[pid].hasSubmitted = false;
+            playersData[pid].isCorrect = null;
+            playersData[pid].answer = null;
+        });
+
+        document.getElementById("group-controls").style.display = "none";
+        document.getElementById("host-btn-next").style.display = "block";
+        updateHostUI();
+
+        for (let pid in hostConnections) {
+            sendPlayerUpdate(pid);
+        }
+        showAlert("已設定為不分組，可以開始派題了。");
+        return;
+    }
     
     if (pKeys.length < numTeams) {
         showAlert(`至少需要 ${numTeams} 名玩家才能分成 ${numTeams} 組！`);
