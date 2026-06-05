@@ -80,7 +80,7 @@
         /* 結算畫面 */
         #result-screen { text-align: center; display: none; }
         .score-display { font-size: 4em; color: #e74c3c; margin: 10px 0 30px 0; font-weight: bold;}
-        .result-box { background:#ecf0f1; border: 2px solid #bdc3c7; padding:20px; border-radius:10px; margin:20px auto; text-align: left; font-size: 1.2em; max-width: 500px;}
+        .result-box { background:#ecf0f1; border: 2px solid #bdc3c7; padding:20px; border-radius:10px; margin:20px 0; text-align: left; font-size: 1.2em; max-width: 500px; margin-left: auto; margin-right: auto;}
         
         #waiting-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; font-size: 2em; font-weight: bold; justify-content: center; align-items: center; z-index: 9999; text-align: center; flex-direction: column;}
         .hidden { display: none !important; }
@@ -88,7 +88,7 @@
         /* 客製化 Alert / Confirm / Prompt 彈窗 */
         .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center; }
         .custom-modal-content { background: white; padding: 30px; border-radius: 10px; text-align: center; max-width: 400px; width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .custom-modal input { padding: 12px; font-size: 1.2em; border: 2px solid #bdc3c7; border-radius: 8px; width: 80%; max-width: 280px; margin-bottom: 15px; text-align: center; outline: none; display: block; margin-left: auto; margin-right: auto;}
+        .custom-modal input { padding: 10px; font-size: 1.1em; width: 80%; margin: 15px 0; border: 2px solid #bdc3c7; border-radius: 5px; text-align: center; outline: none; }
         .custom-modal input:focus { border-color: #3498db; }
         .custom-modal button { padding: 10px 20px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight:bold; }
         .custom-modal button.btn-cancel { background: #7f8c8d; margin-left: 10px; }
@@ -124,12 +124,11 @@
         <div id="group-controls" style="display:flex; gap:10px; align-items:center; margin-bottom:15px; background:white; padding:15px; border-radius:8px;">
             <label style="font-weight:bold; font-size:1.1em;">選擇分組數：</label>
             <select id="team-count-select" style="font-size:1.1em; padding:5px;">
-                <option value="0">不分組</option>
                 <option value="2">分 2 組</option>
                 <option value="3">分 3 組</option>
                 <option value="4">分 4 組</option>
             </select>
-            <button class="btn-host-action btn-host-team" id="btn-assign-teams" style="margin-top:0;" onclick="hostAssignTeams()">🎲 隨機分組</button>
+            <button class="btn-host-action btn-host-team" style="margin-top:0;" onclick="hostAssignTeams()">🎲 隨機分組</button>
         </div>
 
         <div id="host-player-list"></div>
@@ -161,17 +160,13 @@
     <div id="result-screen">
         <h2>📊 最終結算成績</h2>
         
-        <!-- 老師與最終結算成績專屬容器 -->
-        <div class="result-box" id="host-final-results" style="display:none;"></div>
-
         <!-- 隊伍排名 -->
-        <div class="result-box" id="final-team-scores" style="display:none;"></div>
+        <div class="result-box" id="final-team-scores"></div>
         
-        <!-- 個人成績 -->
-        <div class="result-box" id="final-personal-scores" style="display:none;"></div>
+        <!-- 個人成績 (老師端顯示全班，學生端顯示自己) -->
+        <div class="result-box" id="final-personal-scores"></div>
 
         <div id="student-only-end" class="hidden">
-            <p style="font-size:1.5em; margin-bottom:5px;">👤 姓名：<span id="display-name" style="font-weight:bold; color:#2980b9;"></span></p>
             <p style="font-size:1.5em; margin-bottom:0;">個人總得分</p>
             <div class="score-display"><span id="final-score-display">0</span> 分</div>
         </div>
@@ -201,7 +196,7 @@
     </div>
 </div>
 
-<!-- 客製化 Prompt 密碼彈窗 -->
+<!-- 客製化 Prompt 彈窗 -->
 <div class="custom-modal" id="prompt-modal">
     <div class="custom-modal-content">
         <h3>請輸入主持人密碼</h3>
@@ -237,26 +232,10 @@ function showHostLogin() {
     document.getElementById('prompt-modal').style.display = 'flex';
 }
 
-function submitHostLogin() {
-    let pwd = document.getElementById("host-pwd-input").value;
-    if(pwd === "9487") {
-        document.getElementById("prompt-modal").style.display = 'none';
-        isHost = true;
-        document.getElementById("btn-host-login").style.display = "none";
-        document.getElementById("start-screen").style.display = "none";
-        document.getElementById("host-panel").style.display = "block";
-        document.getElementById("host-answer-info").innerText = "主持人房間啟動中，請稍候...";
-        document.getElementById("host-answer-info").style.display = "block";
-        initHostPeer();
-    } else {
-        document.getElementById("host-pwd-error").style.display = "block";
-    }
-}
-
 // =========================================================================
 // 題庫與全域變數設定
 // =========================================================================
-const ROOM_ID = 'bio-battle-g7-2026-tw-v3'; 
+const ROOM_ID = 'bio-battle-g7-2026-tw-v2'; 
 const MAX_PLAYERS = 20;
 
 let peer = null;
@@ -286,7 +265,7 @@ function containsBadWords(name) {
 const pokemonNames = ["皮卡丘", "噴火龍", "妙蛙種子", "傑尼龜"];
 const optionLabels = ["A", "B", "C", "D"];
 
-// 50題複習單選題庫
+// 100題單選題庫
 const rawQuestions = [
     { q: "呼吸作用的主要目的是什麼？", o: ["產生氧氣", "獲得能量", "儲存養分", "散熱"], a: 1 },
     { q: "呼吸作用在細胞的哪一個構造中進行？", o: ["葉綠體", "粒線體", "細胞核", "液泡"], a: 1 },
@@ -364,6 +343,23 @@ function broadcast(data) {
 // =========================================================================
 // 👨‍🏫 主持人 (Host) 邏輯
 // =========================================================================
+function submitHostLogin() {
+    let pwd = document.getElementById("host-pwd-input").value;
+    if(pwd === "9487") {
+        document.getElementById("prompt-modal").style.display = 'none';
+        isHost = true;
+        document.getElementById("btn-host-login").style.display = "none";
+        document.getElementById("start-screen").style.display = "none";
+        document.getElementById("host-panel").style.display = "block";
+        document.getElementById("host-answer-info").innerText = "主持人房間啟動中，請稍候...";
+        document.getElementById("host-answer-info").style.display = "block";
+
+        initHostPeer();
+    } else {
+        document.getElementById("host-pwd-error").style.display = "block";
+    }
+}
+
 function initHostPeer() {
     if (peer) { try { peer.destroy(); } catch(e){} }
     
@@ -409,50 +405,9 @@ function initHostPeer() {
                     safeSend(connection, { type: 'room_full' });
                     return;
                 }
-
-                // 註冊玩家
                 playersData[connection.peer] = {
                     name: data.name, team: 0, score: 0, hasSubmitted: false, answer: null, isCorrect: null
                 };
-
-                // 【需求3：後加入的學生分配邏輯】
-                // 如果主持人已經進行了分組 (teamsInfo內有資料)，新加入的學生隨機加入其中一組，優先加入人數最少者
-                const activeTeamCount = Object.keys(teamsInfo).length;
-                if (activeTeamCount > 0) {
-                    // 1. 統計目前每組人數
-                    let teamMemberCounts = {};
-                    for (let tId in teamsInfo) {
-                        teamMemberCounts[tId] = 0;
-                    }
-                    for (let pid in playersData) {
-                        let p = playersData[pid];
-                        if (p.team && teamMemberCounts[p.team] !== undefined) {
-                            teamMemberCounts[p.team]++;
-                        }
-                    }
-
-                    // 2. 找到人數最少的組別 (打亂組別順序以實現隨機分配)
-                    let minCount = Infinity;
-                    let targetTeams = [];
-                    let shuffledTeamIds = Object.keys(teamMemberCounts).sort(() => Math.random() - 0.5);
-                    
-                    shuffledTeamIds.forEach(tId => {
-                        if (teamMemberCounts[tId] < minCount) {
-                            minCount = teamMemberCounts[tId];
-                        }
-                    });
-
-                    shuffledTeamIds.forEach(tId => {
-                        if (teamMemberCounts[tId] === minCount) {
-                            targetTeams.push(parseInt(tId));
-                        }
-                    });
-
-                    // 隨機選一個最少人的組別加入
-                    let assignedTeam = targetTeams[Math.floor(Math.random() * targetTeams.length)];
-                    playersData[connection.peer].team = assignedTeam;
-                }
-
                 updateHostUI();
                 sendPlayerUpdate(connection.peer);
             }
@@ -489,7 +444,6 @@ function hostInitState() {
     globalQuestionOrder = shuffleArray(Array.from({length: rawQuestions.length}, (_, i) => i));
     
     document.getElementById("group-controls").style.display = "flex";
-    document.getElementById("btn-assign-teams").innerText = "🎲 隨機分組";
     document.getElementById("host-btn-next").style.display = "none";
     document.getElementById("host-btn-reveal").style.display = "none";
     document.getElementById("host-btn-end").style.display = "block";
@@ -513,53 +467,43 @@ function hostAssignTeams() {
     const pKeys = Object.keys(playersData);
     numTeams = parseInt(document.getElementById("team-count-select").value);
     
-    if (numTeams > 0 && pKeys.length < numTeams) {
+    if (pKeys.length < numTeams) {
         showAlert(`至少需要 ${numTeams} 名玩家才能分成 ${numTeams} 組！`);
         return;
     }
 
+    pKeys.sort(() => Math.random() - 0.5);
+    let pkmns = shuffleArray(pokemonNames);
+    
     teamsInfo = {};
-    if (numTeams > 0) {
-        pKeys.sort(() => Math.random() - 0.5);
-        let pkmns = shuffleArray(pokemonNames);
-        for(let i=1; i<=numTeams; i++) {
-            teamsInfo[i] = { name: pkmns[i-1] + "隊", score: 0 };
-        }
-
-        pKeys.forEach((pid, index) => {
-            let teamNum = (index % numTeams) + 1;
-            playersData[pid].team = teamNum;
-            playersData[pid].score = 0;
-            playersData[pid].hasSubmitted = false;
-            playersData[pid].isCorrect = null;
-            playersData[pid].answer = null;
-        });
-        showAlert(`已成功隨機分成 ${numTeams} 組！可以開始派題了。`);
-    } else {
-        pKeys.forEach((pid) => {
-            playersData[pid].team = 0;
-            playersData[pid].score = 0;
-            playersData[pid].hasSubmitted = false;
-            playersData[pid].isCorrect = null;
-            playersData[pid].answer = null;
-        });
-        showAlert(`已設定為「不分組」模式！可以開始派題了。`);
+    for(let i=1; i<=numTeams; i++) {
+        teamsInfo[i] = { name: pkmns[i-1] + "隊", score: 0 };
     }
 
-    document.getElementById("btn-assign-teams").innerText = "🔄 再次分組";
+    pKeys.forEach((pid, index) => {
+        let teamNum = (index % numTeams) + 1;
+        playersData[pid].team = teamNum;
+        playersData[pid].score = 0;
+        playersData[pid].hasSubmitted = false;
+        playersData[pid].isCorrect = null;
+        playersData[pid].answer = null;
+    });
+
+    document.getElementById("group-controls").style.display = "none";
     document.getElementById("host-btn-next").style.display = "block";
     updateHostUI();
     
     for (let pid in hostConnections) {
         sendPlayerUpdate(pid);
     }
+    showAlert(`已成功隨機分成 ${numTeams} 組！可以開始派題了。`);
 }
 
 function sendPlayerUpdate(peerId) {
     const p = playersData[peerId];
     if (!p || !hostConnections[peerId]) return;
     
-    let teamName = p.team && teamsInfo[p.team] ? teamsInfo[p.team].name : "未分組";
+    let teamName = p.team ? teamsInfo[p.team].name : "未分組";
     safeSend(hostConnections[peerId], {
         type: 'player_update',
         teamName: teamName,
@@ -729,32 +673,24 @@ function hostEndGame() {
         document.getElementById("group-controls").style.display = "none";
         document.getElementById("host-timer").innerText = "測驗已結束";
 
-        let finalHtml = "<h3>🏁 最終成績排行</h3>";
-        
-        if (Object.keys(teamsInfo).length > 0) {
-            finalHtml += "<h4>各隊伍總成績</h4>";
-            let tArr = Object.values(teamsInfo).sort((a,b) => b.score - a.score);
-            tArr.forEach((t, i) => {
-                let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
-                finalHtml += `<div style="margin-bottom:10px; font-size:1.2em;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
-            });
-            finalHtml += "<hr style='border:1px solid #ddd; margin: 20px 0;'>";
-        }
+        let finalHtml = "<h3>🏁 各隊伍總成績</h3>";
+        let tArr = Object.values(teamsInfo).sort((a,b) => b.score - a.score);
+        tArr.forEach((t, i) => {
+            let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
+            finalHtml += `<div style="margin-bottom:10px; font-size:1.2em;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
+        });
 
-        finalHtml += "<h4>🎓 個人成績排行</h4><ol style='font-size:1.1em;'>";
+        finalHtml += "<h3 style='margin-top:20px; border-top:1px solid #ddd; padding-top:10px;'>🎓 個人成績排行</h3><ol style='font-size:1.1em;'>";
         let pArr = Object.values(playersData).sort((a,b) => b.score - a.score);
         pArr.forEach(p => {
-            let tName = p.team && teamsInfo[p.team] ? teamsInfo[p.team].name : "未分組";
-            let teamTag = Object.keys(teamsInfo).length > 0 ? ` (${tName})` : "";
-            finalHtml += `<li><b>${p.name}</b>${teamTag} - ${p.score} 分</li>`;
+            let tName = p.team ? teamsInfo[p.team].name : "未分組";
+            finalHtml += `<li><b>${p.name}</b> (${tName}) - ${p.score} 分</li>`;
         });
         finalHtml += "</ol>";
 
         let resBox = document.getElementById("host-final-results");
-        if (resBox) {
-            resBox.innerHTML = finalHtml;
-            resBox.style.display = "block";
-        }
+        resBox.innerHTML = finalHtml;
+        resBox.style.display = "block";
         document.getElementById("result-screen").style.display = "block";
         document.getElementById("host-player-list").style.display = "none";
 
@@ -1012,53 +948,30 @@ function studentReveal(correctAns) {
 }
 
 function showStudentResults(finalTeamsInfo) {
-    clearInterval(timerInterval); 
     currentLocalStatus = 'finished';
-    
-    // 先行隱藏無關區塊，避免空白
     document.getElementById("quiz-area").style.display = "none";
+    document.getElementById("result-screen").style.display = "block";
     document.getElementById("player-header").style.display = "none";
     document.getElementById("waiting-overlay").style.display = "none";
+
+    document.getElementById("display-name").innerText = studentName;
+    document.getElementById("final-score-display").innerText = document.getElementById("my-score").innerText;
+    document.getElementById("student-only-end").classList.remove("hidden");
     
-    // 渲染個人總成績
-    const nameSpan = document.getElementById("display-name");
-    if (nameSpan) {
-        nameSpan.innerText = studentName;
+    if(finalTeamsInfo && Object.keys(finalTeamsInfo).length > 0) {
+        let tBox = document.getElementById("final-team-scores");
+        tBox.style.display = "block";
+        
+        let tHtml = "<h3 style='margin-top:0; border-bottom:2px solid #bdc3c7; padding-bottom:5px;'>🏆 隊伍對決結果</h3>";
+        
+        let tArr = Object.values(finalTeamsInfo).sort((a,b) => b.score - a.score);
+        tArr.forEach((t, i) => {
+            let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
+            tHtml += `<div style="margin-bottom:8px;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
+        });
+        
+        tBox.innerHTML = tHtml;
     }
-    
-    const finalScoreSpan = document.getElementById("final-score-display");
-    if (finalScoreSpan) {
-        const currentScoreEl = document.getElementById("my-score");
-        finalScoreSpan.innerText = currentScoreEl ? (currentScoreEl.innerText || "0") : "0";
-    }
-
-    const studentEndBox = document.getElementById("student-only-end");
-    if (studentEndBox) {
-        studentEndBox.classList.remove("hidden");
-    }
-
-    // 處理團隊結算渲染
-    let tBox = document.getElementById("final-team-scores");
-    if(tBox) {
-        if(finalTeamsInfo && Object.keys(finalTeamsInfo).length > 0) {
-            tBox.style.display = "block";
-            
-            let tHtml = "<h3 style='margin-top:0; border-bottom:2px solid #bdc3c7; padding-bottom:5px;'>🏆 隊伍對決結果</h3>";
-            
-            let tArr = Object.values(finalTeamsInfo).sort((a,b) => b.score - a.score);
-            tArr.forEach((t, i) => {
-                let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
-                tHtml += `<div style="margin-bottom:8px;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
-            });
-            
-            tBox.innerHTML = tHtml;
-        } else {
-            tBox.style.display = "none"; 
-        }
-    }
-
-    // 開啟結算畫面
-    document.getElementById("result-screen").style.display = "block";
 }
 </script>
 
