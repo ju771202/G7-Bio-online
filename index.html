@@ -193,6 +193,13 @@ let currentLocalStatus = "waiting";
 let timerInterval;
 let globalQuestionOrder = [];
 
+const BAD_WORDS = ["幹", "靠北", "靠杯", "媽的", "沙小", "三小", "機掰", "機敗", "智障", "白痴", "白癡", "垃圾", "王八", "賤", "屌", "屎", "fuck", "shit", "bitch", "ass", "dick", "cock", "pussy", "cunt", "slut", "whore"];
+
+function containsBadWords(name) {
+    let lowerName = name.toLowerCase();
+    return BAD_WORDS.some(word => lowerName.includes(word));
+}
+
 const pokemonNames = ["皮卡丘", "噴火龍", "妙蛙種子", "傑尼龜"];
 const optionLabels = ["A", "B", "C", "D"];
 
@@ -293,14 +300,27 @@ function initHostPeer() {
         hostConnections[connection.peer] = connection;
 
         connection.on('open', () => {
-            // 新加入的學生，同步當前狀態
-            connection.send({ type: 'state', status: currentLocalStatus });
+            // 新加入的學生，同步當前狀態與隊伍資訊
+            safeSend(connection, { type: 'state', status: currentLocalStatus, teamsInfo: teamsInfo });
         });
 
         connection.on('data', (data) => {
             if (data.type === 'join') {
+                // 檢查名字是否重複 (排除自己重連的情況)
+                let nameExists = false;
+                for (let pid in playersData) {
+                    if (playersData[pid].name === data.name && pid !== connection.peer) {
+                        nameExists = true;
+                        break;
+                    }
+                }
+                if (nameExists) {
+                    safeSend(connection, { type: 'name_taken' });
+                    return;
+                }
+
                 if (Object.keys(playersData).length >= MAX_PLAYERS && !playersData[connection.peer]) {
-                    connection.send({ type: 'room_full' });
+                    safeSend(connection, { type: 'room_full' });
                     return;
                 }
                 playersData[connection.peer] = {
@@ -603,26 +623,36 @@ function hostEndGame() {
     document.getElementById("result-screen").style.display = "block";
     document.getElementById("host-player-list").style.display = "none";
 
-    // 廣播給學生結束
-    for(let pid in hostConnections) {
-        hostConnections[pid].send({ type: 'end_game', teamsInfo: teamsInfo });
-    }
+    // 廣播給學生同步結束畫面
+    broadcast({ type: 'end_game', teamsInfo: teamsInfo });
 }
 
 // =========================================================================
-// 👩‍🎓 學生 (Student) 邏輯
+// 👩‍🎓 學生 (Student) 邏輯 (PeerJS)
 // =========================================================================
 function joinGame() {
     studentName = document.getElementById("student-name").value.trim();
+    let errEl = document.getElementById("name-error");
+    
     if (!studentName) {
-        document.getElementById("name-error").style.display = "block";
+        errEl.innerText = "請務必填寫姓名才能開始喔！";
+        errEl.style.display = "block";
         return;
     }
+    
+    if (containsBadWords(studentName)) {
+        errEl.innerText = "請勿使用不雅或髒話字詞，請重新輸入！";
+        errEl.style.display = "block";
+        return;
+    }
+
+    errEl.style.display = "none";
     
     document.getElementById("start-screen").style.display = "none";
     document.getElementById("btn-host-login").style.display = "none";
     document.getElementById("waiting-overlay").style.display = "flex";
-    
+    document.getElementById("wait-msg").innerText = "連線中，請稍候...";
+
     initStudentPeer();
 }
 
@@ -658,7 +688,18 @@ function connectToHost() {
         if (data.type === 'state') {
             if (data.status === 'answering' || data.status === 'revealed') {
                 document.getElementById("wait-msg").innerText = "遊戲進行中，請等候下一題派發...";
+            } else if (data.status === 'finished') {
+                showStudentResults(data.teamsInfo);
             }
+        }
+        else if (data.type === 'name_taken') {
+            document.getElementById("waiting-overlay").style.display = "none";
+            document.getElementById("start-screen").style.display = "block";
+            let errEl = document.getElementById("name-error");
+            errEl.innerText = "這個名字已經有人使用了，請換一個名字！";
+            errEl.style.display = "block";
+            if (conn) conn.close();
+            if (peer) { peer.destroy(); peer = null; }
         }
         else if (data.type === 'room_full') {
             alert("房間已滿 (最多20人)！");
