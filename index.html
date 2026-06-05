@@ -85,9 +85,11 @@
         #waiting-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; font-size: 2em; font-weight: bold; justify-content: center; align-items: center; z-index: 9999; text-align: center; flex-direction: column;}
         .hidden { display: none !important; }
 
-        /* 客製化 Alert / Confirm 彈窗 */
+        /* 客製化 Alert / Confirm / Prompt 彈窗 */
         .custom-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; justify-content: center; align-items: center; }
         .custom-modal-content { background: white; padding: 30px; border-radius: 10px; text-align: center; max-width: 400px; width: 80%; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .custom-modal input { padding: 10px; font-size: 1.1em; width: 80%; margin: 15px 0; border: 2px solid #bdc3c7; border-radius: 5px; text-align: center; outline: none; }
+        .custom-modal input:focus { border-color: #3498db; }
         .custom-modal button { padding: 10px 20px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight:bold; }
         .custom-modal button.btn-cancel { background: #7f8c8d; margin-left: 10px; }
     </style>
@@ -96,7 +98,7 @@
 </head>
 <body>
 
-<button class="btn-host" id="btn-host-login" onclick="hostLogin()">👨‍🏫 主持人入口</button>
+<button class="btn-host" id="btn-host-login" onclick="showHostLogin()">👨‍🏫 主持人入口</button>
 
 <div class="container">
     <h1 id="main-title">🧬 7年級生物期末複習對戰版</h1>
@@ -194,6 +196,18 @@
     </div>
 </div>
 
+<!-- 客製化 Prompt 彈窗 -->
+<div class="custom-modal" id="prompt-modal">
+    <div class="custom-modal-content">
+        <h3>請輸入主持人密碼</h3>
+        <input type="password" id="host-pwd-input" placeholder="請輸入密碼">
+        <div style="color:#e74c3c; display:none; margin-bottom:10px;" id="host-pwd-error">密碼錯誤！</div>
+        <br>
+        <button onclick="submitHostLogin()">確認</button>
+        <button class="btn-cancel" onclick="document.getElementById('prompt-modal').style.display='none'">取消</button>
+    </div>
+</div>
+
 <script>
 // =========================================================================
 // 客製化視窗函數
@@ -210,6 +224,12 @@ function showConfirm(msg, onConfirm) {
         onConfirm();
     };
     document.getElementById('confirm-modal').style.display = 'flex';
+}
+
+function showHostLogin() {
+    document.getElementById('host-pwd-input').value = '';
+    document.getElementById('host-pwd-error').style.display = 'none';
+    document.getElementById('prompt-modal').style.display = 'flex';
 }
 
 // =========================================================================
@@ -232,6 +252,7 @@ let answered = false;
 let currentLocalStatus = "waiting"; 
 let timerInterval;
 let globalQuestionOrder = [];
+let isNameTaken = false; 
 
 // 髒話/不雅字詞過濾器
 const BAD_WORDS = ["幹", "靠北", "靠杯", "媽的", "沙小", "三小", "機掰", "機敗", "智障", "白痴", "白癡", "垃圾", "王八", "賤", "屌", "屎", "fuck", "shit", "bitch", "ass", "dick", "cock", "pussy", "cunt", "slut", "whore"];
@@ -322,15 +343,21 @@ function broadcast(data) {
 // =========================================================================
 // 👨‍🏫 主持人 (Host) 邏輯
 // =========================================================================
-function hostLogin() {
-    isHost = true;
-    document.getElementById("btn-host-login").style.display = "none";
-    document.getElementById("start-screen").style.display = "none";
-    document.getElementById("host-panel").style.display = "block";
-    document.getElementById("host-answer-info").innerText = "主持人房間啟動中，請稍候...";
-    document.getElementById("host-answer-info").style.display = "block";
+function submitHostLogin() {
+    let pwd = document.getElementById("host-pwd-input").value;
+    if(pwd === "9487") {
+        document.getElementById("prompt-modal").style.display = 'none';
+        isHost = true;
+        document.getElementById("btn-host-login").style.display = "none";
+        document.getElementById("start-screen").style.display = "none";
+        document.getElementById("host-panel").style.display = "block";
+        document.getElementById("host-answer-info").innerText = "主持人房間啟動中，請稍候...";
+        document.getElementById("host-answer-info").style.display = "block";
 
-    initHostPeer();
+        initHostPeer();
+    } else {
+        document.getElementById("host-pwd-error").style.display = "block";
+    }
 }
 
 function initHostPeer() {
@@ -750,6 +777,7 @@ function connectToHost() {
             }
         }
         else if (data.type === 'name_taken') {
+            isNameTaken = true;
             document.getElementById("waiting-overlay").style.display = "none";
             document.getElementById("start-screen").style.display = "block";
             document.getElementById("btn-host-login").style.display = "block";
@@ -790,6 +818,10 @@ function connectToHost() {
     });
 
     conn.on('close', () => {
+        if (isNameTaken) {
+            isNameTaken = false;
+            return;
+        }
         document.getElementById("waiting-overlay").style.display = "flex";
         document.getElementById("wait-msg").innerHTML = "與老師斷線了，系統正在嘗試重新連線...<br><span style='font-size:0.6em;'>(或請重新整理網頁)</span>";
         setTimeout(connectToHost, 3000);
