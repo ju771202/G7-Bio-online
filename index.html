@@ -340,6 +340,40 @@ function broadcast(data) {
     for (let pid in hostConnections) safeSend(hostConnections[pid], data);
 }
 
+function recalculateTeamScores() {
+    for (let t in teamsInfo) teamsInfo[t].score = 0;
+    for (let pid in playersData) {
+        let p = playersData[pid];
+        if (p.team && teamsInfo[p.team]) teamsInfo[p.team].score += (p.score || 0);
+    }
+}
+
+function assignPlayerToSmallestTeam(peerId) {
+    if (!playersData[peerId] || Object.keys(teamsInfo).length === 0) return;
+
+    let counts = {};
+    for (let i = 1; i <= numTeams; i++) counts[i] = 0;
+
+    for (let pid in playersData) {
+        let t = playersData[pid].team;
+        if (t && counts[t] !== undefined) counts[t]++;
+    }
+
+    let smallestTeams = [];
+    let minCount = Infinity;
+    for (let i = 1; i <= numTeams; i++) {
+        if (counts[i] < minCount) {
+            minCount = counts[i];
+            smallestTeams = [i];
+        } else if (counts[i] === minCount) {
+            smallestTeams.push(i);
+        }
+    }
+
+    let assignedTeam = smallestTeams[Math.floor(Math.random() * smallestTeams.length)];
+    playersData[peerId].team = assignedTeam;
+}
+
 // =========================================================================
 // 👨‍🏫 主持人 (Host) 邏輯
 // =========================================================================
@@ -408,8 +442,21 @@ function initHostPeer() {
                 playersData[connection.peer] = {
                     name: data.name, team: 0, score: 0, hasSubmitted: false, answer: null, isCorrect: null
                 };
+
+                // 若已經完成分組，後加入者不打亂原組別，
+                // 直接優先補進人數較少的隊伍；人數相同時隨機加入其中一隊。
+                if (Object.keys(teamsInfo).length > 0) {
+                    assignPlayerToSmallestTeam(connection.peer);
+                }
+
                 updateHostUI();
                 sendPlayerUpdate(connection.peer);
+
+                if (currentLocalStatus === 'finished') {
+                    safeSend(connection, { type: 'end_game', teamsInfo: teamsInfo, playersData: playersData });
+                } else if (currentLocalStatus === 'answering' || currentLocalStatus === 'revealed') {
+                    safeSend(connection, { type: 'state', status: currentLocalStatus, teamsInfo: teamsInfo });
+                }
             }
             else if (data.type === 'submit') {
                 if(playersData[connection.peer]) {
@@ -502,12 +549,15 @@ function hostAssignTeams() {
 function sendPlayerUpdate(peerId) {
     const p = playersData[peerId];
     if (!p || !hostConnections[peerId]) return;
-    
+
+    recalculateTeamScores();
     let teamName = p.team ? teamsInfo[p.team].name : "未分組";
+    let teamScore = p.team && teamsInfo[p.team] ? teamsInfo[p.team].score : 0;
     safeSend(hostConnections[peerId], {
         type: 'player_update',
         teamName: teamName,
-        myScore: p.score || 0
+        myScore: p.score || 0,
+        teamScore: teamScore
     });
 }
 
@@ -515,11 +565,7 @@ function updateHostUI() {
     let pCount = Object.keys(playersData).length;
     let submitCount = 0;
     
-    for(let t in teamsInfo) teamsInfo[t].score = 0;
-    for (let pid in playersData) {
-        let p = playersData[pid];
-        if (p.team && teamsInfo[p.team]) teamsInfo[p.team].score += (p.score || 0);
-    }
+    recalculateTeamScores();
 
     function renderPlayerTag(pid) {
         let p = playersData[pid];
@@ -577,7 +623,8 @@ function hostStartOrNext() {
 
     let realQIndex = globalQuestionOrder[currentQ];
     let q = rawQuestions[realQIndex];
-    const timerEndTime = Date.now() + 20000; // 20秒
+    const questionDurationMs = 20000; // 20秒
+    const timerEndTime = Date.now() + questionDurationMs
 
     document.getElementById("host-btn-next").style.display = "none";
     document.getElementById("host-btn-reveal").style.display = "block";
@@ -598,7 +645,8 @@ function hostStartOrNext() {
         qIndex: currentQ,
         realQIndex: realQIndex,
         totalQ: rawQuestions.length,
-        endTime: timerEndTime
+        endTime: timerEndTime,
+        durationMs: questionDurationMs
     });
 }
 
@@ -663,8 +711,9 @@ function hostReveal() {
 function hostEndGame() {
     showConfirm("確定要結束測驗並看最終成績嗎？", () => {
         currentLocalStatus = 'finished';
+        recalculateTeamScores();
         updateHostUI();
-        
+
         document.getElementById("host-btn-next").style.display = "none";
         document.getElementById("host-btn-reveal").style.display = "none";
         document.getElementById("host-btn-end").style.display = "none";
@@ -672,30 +721,36 @@ function hostEndGame() {
         document.getElementById("host-answer-info").style.display = "none";
         document.getElementById("group-controls").style.display = "none";
         document.getElementById("host-timer").innerText = "測驗已結束";
+        document.getElementById("quiz-area").style.display = "none";
+        document.getElementById("waiting-overlay").style.display = "none";
 
-        let finalHtml = "<h3>🏁 各隊伍總成績</h3>";
+        let teamHtml = "<h3 style='margin-top:0; border-bottom:2px solid #bdc3c7; padding-bottom:5px;'>🏁 各隊伍總成績</h3>";
         let tArr = Object.values(teamsInfo).sort((a,b) => b.score - a.score);
         tArr.forEach((t, i) => {
             let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
-            finalHtml += `<div style="margin-bottom:10px; font-size:1.2em;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
+            teamHtml += `<div style="margin-bottom:10px; font-size:1.2em;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
         });
 
-        finalHtml += "<h3 style='margin-top:20px; border-top:1px solid #ddd; padding-top:10px;'>🎓 個人成績排行</h3><ol style='font-size:1.1em;'>";
+        let personalHtml = "<h3 style='margin-top:0; border-bottom:2px solid #bdc3c7; padding-bottom:5px;'>🎓 個人成績排行</h3><ol style='font-size:1.1em;'>";
         let pArr = Object.values(playersData).sort((a,b) => b.score - a.score);
         pArr.forEach(p => {
             let tName = p.team ? teamsInfo[p.team].name : "未分組";
-            finalHtml += `<li><b>${p.name}</b> (${tName}) - ${p.score} 分</li>`;
+            personalHtml += `<li><b>${p.name}</b> (${tName}) - ${p.score} 分</li>`;
         });
-        finalHtml += "</ol>";
+        personalHtml += "</ol>";
 
-        let resBox = document.getElementById("host-final-results");
-        resBox.innerHTML = finalHtml;
-        resBox.style.display = "block";
+        let teamBox = document.getElementById("final-team-scores");
+        let personalBox = document.getElementById("final-personal-scores");
+        teamBox.innerHTML = teamHtml;
+        personalBox.innerHTML = personalHtml;
+        teamBox.style.display = "block";
+        personalBox.style.display = "block";
+        document.getElementById("student-only-end").classList.add("hidden");
         document.getElementById("result-screen").style.display = "block";
         document.getElementById("host-player-list").style.display = "none";
 
         // 廣播給學生，強制同步跳轉到成績結算畫面
-        broadcast({ type: 'end_game', teamsInfo: teamsInfo });
+        broadcast({ type: 'end_game', teamsInfo: teamsInfo, playersData: playersData });
     });
 }
 
@@ -773,7 +828,7 @@ function connectToHost() {
             if (data.status === 'answering' || data.status === 'revealed') {
                 document.getElementById("wait-msg").innerText = "遊戲進行中，請等候下一題派發...";
             } else if (data.status === 'finished') {
-                showStudentResults(data.teamsInfo);
+                showStudentResults(data.teamsInfo, data.playersData);
             }
         }
         else if (data.type === 'name_taken') {
@@ -807,13 +862,13 @@ function connectToHost() {
             document.getElementById("waiting-overlay").style.display = "none";
             document.getElementById("result-screen").style.display = "none";
             document.getElementById("quiz-area").style.display = "block";
-            renderStudentQuestion(data.realQIndex, data.qIndex, data.totalQ, data.endTime);
+            renderStudentQuestion(data.realQIndex, data.qIndex, data.totalQ, data.endTime, data.durationMs);
         }
         else if (data.type === 'reveal') {
             studentReveal(data.correctAns);
         }
         else if (data.type === 'end_game') {
-            showStudentResults(data.teamsInfo);
+            showStudentResults(data.teamsInfo, data.playersData);
         }
     });
 
@@ -833,7 +888,7 @@ function connectToHost() {
     });
 }
 
-function renderStudentQuestion(realQIndex, qIndex, totalQ, endTime) {
+function renderStudentQuestion(realQIndex, qIndex, totalQ, endTime, durationMs) {
     currentLocalStatus = 'answering';
     answered = false;
     const q = rawQuestions[realQIndex];
@@ -855,21 +910,22 @@ function renderStudentQuestion(realQIndex, qIndex, totalQ, endTime) {
              <div class="feedback" id="feedback-msg"></div>`;
              
     document.getElementById("quiz-area").innerHTML = html;
-    manageStudentTimer(endTime);
+    manageStudentTimer(endTime, durationMs);
 }
 
-function manageStudentTimer(endTime) {
+function manageStudentTimer(endTime, durationMs) {
     clearInterval(timerInterval);
     const pTimer = document.getElementById("player-timer");
     const subBtn = document.getElementById("submit-btn");
-    
+    const localEndTime = durationMs ? Date.now() + durationMs : endTime;
+
     timerInterval = setInterval(() => {
-        let left = Math.ceil((endTime - Date.now()) / 1000);
+        let left = Math.ceil((localEndTime - Date.now()) / 1000);
         if (left <= 0) {
             clearInterval(timerInterval);
             pTimer.innerText = "時間到！";
             pTimer.classList.add('danger');
-            
+
             if (!answered) {
                 answered = true;
                 subBtn.disabled = true;
@@ -947,29 +1003,36 @@ function studentReveal(correctAns) {
     document.getElementById("submit-btn").style.display = "none";
 }
 
-function showStudentResults(finalTeamsInfo) {
+function showStudentResults(finalTeamsInfo, finalPlayersData) {
+    clearInterval(timerInterval);
     currentLocalStatus = 'finished';
     document.getElementById("quiz-area").style.display = "none";
+    document.getElementById("host-panel").style.display = "none";
     document.getElementById("result-screen").style.display = "block";
     document.getElementById("player-header").style.display = "none";
     document.getElementById("waiting-overlay").style.display = "none";
 
-    document.getElementById("display-name").innerText = studentName;
-    document.getElementById("final-score-display").innerText = document.getElementById("my-score").innerText;
+    let myScore = document.getElementById("my-score") ? document.getElementById("my-score").innerText : "0";
+    document.getElementById("final-score-display").innerText = myScore;
     document.getElementById("student-only-end").classList.remove("hidden");
-    
+
+    let personalBox = document.getElementById("final-personal-scores");
+    personalBox.style.display = "block";
+    personalBox.innerHTML = `<h3 style='margin-top:0; border-bottom:2px solid #bdc3c7; padding-bottom:5px;'>👤 我的成績</h3>
+                             <div><b>${studentName}</b>：${myScore} 分</div>`;
+
     if(finalTeamsInfo && Object.keys(finalTeamsInfo).length > 0) {
         let tBox = document.getElementById("final-team-scores");
         tBox.style.display = "block";
-        
+
         let tHtml = "<h3 style='margin-top:0; border-bottom:2px solid #bdc3c7; padding-bottom:5px;'>🏆 隊伍對決結果</h3>";
-        
+
         let tArr = Object.values(finalTeamsInfo).sort((a,b) => b.score - a.score);
         tArr.forEach((t, i) => {
             let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
             tHtml += `<div style="margin-bottom:8px;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
         });
-        
+
         tBox.innerHTML = tHtml;
     }
 }
