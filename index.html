@@ -673,18 +673,24 @@ function hostEndGame() {
         document.getElementById("group-controls").style.display = "none";
         document.getElementById("host-timer").innerText = "測驗已結束";
 
-        let finalHtml = "<h3>🏁 各隊伍總成績</h3>";
-        let tArr = Object.values(teamsInfo).sort((a,b) => b.score - a.score);
-        tArr.forEach((t, i) => {
-            let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
-            finalHtml += `<div style="margin-bottom:10px; font-size:1.2em;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
-        });
+        let finalHtml = "<h3>🏁 最終成績排行</h3>";
+        
+        if (Object.keys(teamsInfo).length > 0) {
+            finalHtml += "<h4>各隊伍總成績</h4>";
+            let tArr = Object.values(teamsInfo).sort((a,b) => b.score - a.score);
+            tArr.forEach((t, i) => {
+                let medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "🔹";
+                finalHtml += `<div style="margin-bottom:10px; font-size:1.2em;">${medal} <b>${t.name}</b>：${t.score} 分</div>`;
+            });
+            finalHtml += "<hr style='border:1px solid #ddd; margin: 20px 0;'>";
+        }
 
-        finalHtml += "<h3 style='margin-top:20px; border-top:1px solid #ddd; padding-top:10px;'>🎓 個人成績排行</h3><ol style='font-size:1.1em;'>";
+        finalHtml += "<h4>🎓 個人成績排行</h4><ol style='font-size:1.1em;'>";
         let pArr = Object.values(playersData).sort((a,b) => b.score - a.score);
         pArr.forEach(p => {
-            let tName = p.team ? teamsInfo[p.team].name : "未分組";
-            finalHtml += `<li><b>${p.name}</b> (${tName}) - ${p.score} 分</li>`;
+            let tName = p.team && teamsInfo[p.team] ? teamsInfo[p.team].name : "未分組";
+            let teamTag = Object.keys(teamsInfo).length > 0 ? ` (${tName})` : "";
+            finalHtml += `<li><b>${p.name}</b>${teamTag} - ${p.score} 分</li>`;
         });
         finalHtml += "</ol>";
 
@@ -948,18 +954,21 @@ function studentReveal(correctAns) {
 }
 
 function showStudentResults(finalTeamsInfo) {
+    clearInterval(timerInterval); // 確保倒數計時器停止
     currentLocalStatus = 'finished';
+    
+    // 強制隱藏所有測驗畫面，並顯示結果畫面
     document.getElementById("quiz-area").style.display = "none";
-    document.getElementById("result-screen").style.display = "block";
     document.getElementById("player-header").style.display = "none";
     document.getElementById("waiting-overlay").style.display = "none";
+    document.getElementById("result-screen").style.display = "block";
 
     document.getElementById("display-name").innerText = studentName;
-    document.getElementById("final-score-display").innerText = document.getElementById("my-score").innerText;
+    document.getElementById("final-score-display").innerText = document.getElementById("my-score").innerText || "0";
     document.getElementById("student-only-end").classList.remove("hidden");
     
+    let tBox = document.getElementById("final-team-scores");
     if(finalTeamsInfo && Object.keys(finalTeamsInfo).length > 0) {
-        let tBox = document.getElementById("final-team-scores");
         tBox.style.display = "block";
         
         let tHtml = "<h3 style='margin-top:0; border-bottom:2px solid #bdc3c7; padding-bottom:5px;'>🏆 隊伍對決結果</h3>";
@@ -971,6 +980,8 @@ function showStudentResults(finalTeamsInfo) {
         });
         
         tBox.innerHTML = tHtml;
+    } else {
+        tBox.style.display = "none"; // 不分組時隱藏隊伍排名區塊
     }
 }
 </script>
